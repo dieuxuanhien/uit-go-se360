@@ -1,0 +1,9 @@
+
+.bmad*
+.vscode/
+.github/chatmodes/
+web-bundles/
+
+
+!.gitignore
+!docs/
