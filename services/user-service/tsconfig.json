@@ -12,7 +12,11 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noImplicitReturns": true,
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "paths": {
+      "@uit-go/shared-types": ["../../packages/shared-types/dist"],
+      "@uit-go/shared-types/*": ["../../packages/shared-types/dist/*"]
+    }
   },
   "include": ["src", "test"],
   "exclude": ["node_modules", "dist"]

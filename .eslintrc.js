@@ -15,6 +15,7 @@ module.exports = {
     node: true,
     es2022: true,
   },
+  ignorePatterns: ['**/*.d.ts', 'dist', 'node_modules', 'coverage', '.eslintrc.js', '*.config.*js'],
   rules: {
     '@typescript-eslint/no-explicit-any': ['warn', { ignoreRestArgs: true }],
     '@typescript-eslint/no-unused-vars': [
@@ -26,9 +27,10 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['*.spec.ts', '*.test.ts'],
+      files: ['*.spec.ts', '*.test.ts', '**/*.e2e-spec.ts'],
       rules: {
         '@typescript-eslint/no-explicit-any': 'off',
+        'no-console': 'off',
       },
     },
   ],

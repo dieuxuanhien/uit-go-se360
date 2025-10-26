@@ -1,4 +1,12 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "paths": {
+      "@uit-go/shared-types": ["../../packages/shared-types/dist"],
+      "@uit-go/shared-types/*": ["../../packages/shared-types/dist/*"]
+    }
+  },
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
 }

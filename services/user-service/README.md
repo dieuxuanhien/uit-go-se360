@@ -1,29 +1,177 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# UIT-Go User Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS-based microservice handling user authentication, registration, and driver profile management for the UIT-Go ride-sharing platform.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Features
 
-## Description
+- User registration and authentication (JWT-based)
+- Role-based access control (PASSENGER/DRIVER)
+- Driver profile management with vehicle information
+- PostgreSQL database with Prisma ORM
+- Comprehensive test coverage (unit + integration tests)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## API Endpoints
+
+### Authentication
+
+#### POST /users/register
+
+Register a new user account.
+
+**Request Body:**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "Password123!",
+  "role": "DRIVER",
+  "firstName": "John",
+  "lastName": "Doe",
+  "phoneNumber": "+1234567890"
+}
+```
+
+**Response:** `201 Created`
+
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "role": "DRIVER",
+    "firstName": "John",
+    "lastName": "Doe",
+    "phoneNumber": "+1234567890",
+    "createdAt": "2025-10-26T10:00:00.000Z",
+    "updatedAt": "2025-10-26T10:00:00.000Z"
+  },
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+#### POST /users/login
+
+Authenticate an existing user.
+
+**Request Body:**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "Password123!"
+}
+```
+
+**Response:** `200 OK` (same structure as registration)
+
+### Driver Profile Management
+
+#### POST /users/driver-profile
+
+Create a driver profile with vehicle information. Requires JWT authentication and DRIVER role.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+
+```json
+{
+  "vehicleMake": "Toyota",
+  "vehicleModel": "Camry",
+  "vehicleYear": 2022,
+  "vehiclePlate": "51A-12345",
+  "vehicleColor": "Silver",
+  "licenseNumber": "DL123456789"
+}
+```
+
+**Response:** `201 Created`
+
+```json
+{
+  "id": "uuid",
+  "userId": "uuid",
+  "vehicleMake": "Toyota",
+  "vehicleModel": "Camry",
+  "vehicleYear": 2022,
+  "vehiclePlate": "51A-12345",
+  "vehicleColor": "Silver",
+  "licenseNumber": "DL123456789",
+  "approvalStatus": "PENDING",
+  "createdAt": "2025-10-26T10:00:00.000Z",
+  "updatedAt": "2025-10-26T10:00:00.000Z",
+  "user": {
+    "id": "uuid",
+    "email": "driver@example.com",
+    "role": "DRIVER",
+    "firstName": "John",
+    "lastName": "Doe",
+    "phoneNumber": "+1234567890",
+    "createdAt": "2025-10-26T10:00:00.000Z",
+    "updatedAt": "2025-10-26T10:00:00.000Z"
+  }
+}
+```
+
+**Error Responses:**
+
+- `400 Bad Request` - Invalid input data (missing fields, invalid year)
+- `401 Unauthorized` - Missing or invalid JWT token
+- `403 Forbidden` - User does not have DRIVER role
+- `409 Conflict` - Profile already exists, or duplicate vehicle plate/license number
+
+**Validation Rules:**
+
+- `vehicleYear`: Must be between 2000 and 2026
+- `vehiclePlate`: Must be unique across all drivers
+- `licenseNumber`: Must be unique across all drivers
+- One profile per driver user
+
+#### GET /users/driver-profile
+
+Retrieve the authenticated driver's profile.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK` (same structure as POST response)
+
+**Error Responses:**
+
+- `401 Unauthorized` - Missing or invalid JWT token
+- `404 Not Found` - Driver profile does not exist
+
+### Driver Approval Status
+
+The `approvalStatus` field indicates the current state of a driver's profile:
+
+- **PENDING**: Profile created, awaiting admin approval (default)
+- **APPROVED**: Profile approved, driver can accept trips
+- **REJECTED**: Profile rejected by admin
+- **SUSPENDED**: Driver temporarily suspended
+
+### Health Check
+
+#### GET /health
+
+Check service health and database connectivity.
+
+**Response:** `200 OK`
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-10-26T10:00:00.000Z",
+  "database": "connected"
+}
+```
 
 ## Project setup
 

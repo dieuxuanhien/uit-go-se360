@@ -1,12 +1,12 @@
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
-  rootDir: 'src',
+  rootDir: '.',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
-  collectCoverageFrom: ['**/*.(t|j)s'],
-  coverageDirectory: '../coverage',
+  collectCoverageFrom: ['src/**/*.(t|j)s', '!src/main.ts'],
+  coverageDirectory: './coverage',
   testEnvironment: 'node',
   coverageThreshold: {
     global: {
@@ -17,6 +17,7 @@ module.exports = {
     },
   },
   moduleNameMapper: {
-    '^src/(.*)$': '<rootDir>/$1',
+    '^src/(.*)$': '<rootDir>/src/$1',
+    '^@uit-go/shared-types$': '<rootDir>/../../packages/shared-types/dist',
   },
 };

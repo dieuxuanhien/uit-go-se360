@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -30,16 +31,23 @@ model User {
 }
 
 model DriverProfile {
-  id             String         @id @default(uuid())
-  userId         String         @unique @map("user_id")
-  licenseNumber  String         @map("license_number")
-  vehicleInfo    Json           @map("vehicle_info")
-  approvalStatus ApprovalStatus @default(PENDING) @map("approval_status")
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
+  id             String                @id @default(uuid())
+  userId         String                @unique @map("user_id")
+  vehicleMake    String                @map("vehicle_make")
+  vehicleModel   String                @map("vehicle_model")
+  vehicleYear    Int                   @map("vehicle_year")
+  vehiclePlate   String                @unique @map("vehicle_plate")
+  vehicleColor   String                @map("vehicle_color")
+  licenseNumber  String                @unique @map("license_number")
+  approvalStatus DriverApprovalStatus  @default(PENDING) @map("approval_status")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
   
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
+  @@index([userId])
+  @@index([approvalStatus])
+  @@index([vehiclePlate])
   @@map("driver_profiles")
 }
 
@@ -48,8 +56,9 @@ enum UserRole {
   DRIVER
 }
 
-enum ApprovalStatus {
+enum DriverApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+  SUSPENDED
 }
