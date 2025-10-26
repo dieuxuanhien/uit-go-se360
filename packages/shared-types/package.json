@@ -1,0 +1,13 @@
+{
+  "name": "@uit-go/shared-types",
+  "version": "0.1.0",
+  "description": "Shared TypeScript types and interfaces",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

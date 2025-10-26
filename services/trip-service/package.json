@@ -1,0 +1,17 @@
+{
+  "name": "@uit-go/trip-service",
+  "version": "0.1.0",
+  "description": "Trip service microservice",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo 'Tests for trip-service'",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "prisma:generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy"
+  },
+  "devDependencies": {}
+}

@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./",
+    "baseUrl": ".",
+
+    "paths": {
+      "@uit-go/shared-types": ["packages/shared-types/src"],
+      "@uit-go/shared-types/*": ["packages/shared-types/src/*"],
+      "@uit-go/common-utils": ["packages/common-utils/src"],
+      "@uit-go/common-utils/*": ["packages/common-utils/src/*"],
+      "@uit-go/user-service/*": ["services/user-service/src/*"],
+      "@uit-go/trip-service/*": ["services/trip-service/src/*"],
+      "@uit-go/driver-service/*": ["services/driver-service/src/*"]
+    },
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitThis": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "include": ["services", "packages"],
+  "exclude": ["node_modules", "dist", "build", "coverage"]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@uit-go/common-utils",
+  "version": "0.1.0",
+  "description": "Common utility functions and helpers",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {}
+}

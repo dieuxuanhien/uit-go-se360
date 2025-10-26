@@ -1,0 +1,55 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  phoneNumber  String   @map("phone_number")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  driverProfile DriverProfile?
+  
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model DriverProfile {
+  id             String         @id @default(uuid())
+  userId         String         @unique @map("user_id")
+  licenseNumber  String         @map("license_number")
+  vehicleInfo    Json           @map("vehicle_info")
+  approvalStatus ApprovalStatus @default(PENDING) @map("approval_status")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("driver_profiles")
+}
+
+enum UserRole {
+  PASSENGER
+  DRIVER
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

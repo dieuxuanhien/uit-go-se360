@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  postgres-user:
+    image: postgres:15-alpine
+    container_name: uitgo-postgres-user
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: uitgo_user
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-user-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uitgo-network
+
+  postgres-trip:
+    image: postgres:15-alpine
+    container_name: uitgo-postgres-trip
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: uitgo_trip
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres-trip-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uitgo-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: uitgo-redis
+    command: redis-server --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uitgo-network
+
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: uitgo-user-service
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      USER_SERVICE_PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres@postgres-user:5432/uitgo_user?schema=public
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3001/health']
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    networks:
+      - uitgo-network
+    volumes:
+      - ./services/user-service/src:/app/services/user-service/src:ro
+
+volumes:
+  postgres-user-data:
+    driver: local
+  postgres-trip-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  uitgo-network:
+    driver: bridge

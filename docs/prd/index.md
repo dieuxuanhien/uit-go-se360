@@ -1,0 +1,20 @@
+# UIT-Go Product Requirements Document (PRD)
+
+## Table of Contents
+
+- [UIT-Go Product Requirements Document (PRD)](#table-of-contents)
+  - [Goals and Background Context](./goals-and-background-context.md)
+    - [Goals](./goals-and-background-context.md#goals)
+    - [Background Context](./goals-and-background-context.md#background-context)
+    - [Change Log](./goals-and-background-context.md#change-log)
+  - [Requirements](./requirements.md)
+    - [Functional Requirements](./requirements.md#functional-requirements)
+    - [Non-Functional Requirements](./requirements.md#non-functional-requirements)
+  - [Technical Assumptions](./technical-assumptions.md)
+    - [Repository Structure: Monorepo](./technical-assumptions.md#repository-structure-monorepo)
+    - [Service Architecture](./technical-assumptions.md#service-architecture)
+    - [Testing Requirements](./technical-assumptions.md#testing-requirements)
+    - [Infrastructure & Deployment](./technical-assumptions.md#infrastructure-deployment)
+    - [AWS Services & Architecture Patterns](./technical-assumptions.md#aws-services-architecture-patterns)
+    - [Additional Technical Assumptions and Requests](./technical-assumptions.md#additional-technical-assumptions-and-requests)
+  - [Epic List](./epic-list.md)
