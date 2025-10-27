@@ -166,6 +166,97 @@ curl -X PUT http://localhost:3003/drivers/location \
 - Driver automatically removed from search if location not updated
 - Allows for temporary connection loss without immediately removing driver
 
+#### GET /drivers/search
+
+Search for nearby available drivers within a specified radius. Returns only online drivers sorted by distance (closest first).
+
+**Authentication**: Required (JWT Bearer token, any authenticated user - DRIVER or PASSENGER)
+
+**Query Parameters**:
+
+- `latitude` (required): Search center latitude, must be between -90 and 90
+- `longitude` (required): Search center longitude, must be between -180 and 180
+- `radius` (optional): Search radius in kilometers, must be between 0.1 and 50, default 5
+- `limit` (optional): Maximum number of results, must be between 1 and 50, default 10
+
+**Response** (200 OK):
+
+```json
+{
+  "drivers": [
+    {
+      "driverId": "550e8400-e29b-41d4-a716-446655440001",
+      "latitude": 10.762822,
+      "longitude": 106.660372,
+      "distance": 150,
+      "isOnline": true
+    },
+    {
+      "driverId": "550e8400-e29b-41d4-a716-446655440002",
+      "latitude": 10.765122,
+      "longitude": 106.662172,
+      "distance": 320,
+      "isOnline": true
+    }
+  ],
+  "searchRadius": 5,
+  "totalFound": 2
+}
+```
+
+**Response Fields**:
+
+- `drivers`: Array of nearby drivers sorted by distance (closest first)
+  - `driverId`: Driver identifier (UUID)
+  - `latitude`: Driver's current latitude
+  - `longitude`: Driver's current longitude
+  - `distance`: Distance from search center in meters (integer)
+  - `isOnline`: Driver's online status (always true in results)
+- `searchRadius`: Search radius used in kilometers
+- `totalFound`: Total number of online drivers found within radius
+
+**Empty Results**: When no online drivers are found within the radius, returns 200 OK with empty array:
+
+```json
+{
+  "drivers": [],
+  "searchRadius": 5,
+  "totalFound": 0
+}
+```
+
+**Error Responses**:
+
+- `400 Bad Request`: Invalid coordinates (latitude not in [-90, 90] or longitude not in [-180, 180]), invalid radius (not in [0.1, 50]), or invalid limit (not in [1, 50])
+- `401 Unauthorized`: Missing or invalid JWT token
+- `503 Service Unavailable`: Redis connection failure
+
+**Example curl commands**:
+
+```bash
+# Basic search with default parameters (5km radius, 10 results max)
+curl -X GET "http://localhost:3003/drivers/search?latitude=10.762622&longitude=106.660172" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Search with custom radius and limit
+curl -X GET "http://localhost:3003/drivers/search?latitude=10.762622&longitude=106.660172&radius=10&limit=20" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Performance**:
+
+- Query executes in under 500ms for typical load
+- Uses Redis GEORADIUS command for efficient geospatial search
+- Results are pre-filtered by Redis and only online drivers are returned
+
+**Usage Notes for TripService Integration**:
+
+1. Call this endpoint when a passenger requests a ride to find nearby drivers
+2. Use the returned `driverId` to assign rides to specific drivers
+3. Distance is provided in meters for accurate selection
+4. Drivers are already sorted by proximity - select the first available
+5. Re-search if no drivers are available or all decline
+
 ### Health Check
 
 #### GET /health
@@ -262,6 +353,13 @@ Service health check endpoint.
 - **Members**: Driver UUIDs with latitude/longitude coordinates
 - **Purpose**: Enable fast nearby driver search using GEORADIUS/GEOSEARCH commands
 - **Storage**: Uses GEOADD command with longitude, latitude order
+- **⚠️ IMPORTANT**: Redis geospatial commands use (longitude, latitude) order, which is OPPOSITE of the common (latitude, longitude) order used in most applications and APIs
+- **GEORADIUS Command Example**:
+  ```bash
+  GEORADIUS driver:geo 106.660172 10.762622 5 km WITHDIST ASC COUNT 10
+  # Note: longitude (106.660172) comes before latitude (10.762622)
+  ```
+- **Search Performance**: Sub-500ms for typical queries within 50km radius
 
 ## Local Development Setup
 
@@ -396,7 +494,10 @@ src/
 │       ├── update-status.dto.ts
 │       ├── driver-status-response.dto.ts
 │       ├── update-location.dto.ts
-│       └── driver-location-response.dto.ts
+│       ├── driver-location-response.dto.ts
+│       ├── search-nearby-drivers.dto.ts
+│       ├── nearby-driver-response.dto.ts
+│       └── search-nearby-drivers-response.dto.ts
 ├── health/                 # Health check
 │   └── health.controller.ts
 └── redis/                  # Redis module
@@ -410,9 +511,11 @@ src/
 
 - Manages driver status updates and retrieval
 - Manages driver location updates
+- Performs geospatial search for nearby drivers
 - Interacts with Redis for data storage
-- Implements business logic for status and location management
+- Implements business logic for status, location, and search operations
 - Handles geospatial indexing for location data
+- Filters search results to only include online drivers
 
 #### RedisService
 
@@ -449,11 +552,11 @@ src/
 
 Planned features for subsequent stories:
 
-- Geospatial nearby driver search (Story 3.3)
 - Driver location update history
 - Status change event notifications
 - Advanced driver availability rules (e.g., scheduled breaks, geofence restrictions)
 - Real-time location streaming via WebSocket
+- Driver rating and performance metrics
 
 ## Related Documentation
 

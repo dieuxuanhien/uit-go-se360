@@ -9,6 +9,8 @@ import { RedisService } from '../redis/redis.service';
 import { DriverStatusResponseDto } from './dto/driver-status-response.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { DriverLocationResponseDto } from './dto/driver-location-response.dto';
+import { SearchNearbyDriversResponseDto } from './dto/search-nearby-drivers-response.dto';
+import { NearbyDriverResponseDto } from './dto/nearby-driver-response.dto';
 // import { validate as isUuid } from 'uuid';
 
 @Injectable()
@@ -155,6 +157,130 @@ export class DriversService {
         operation: 'updateLocation',
       });
       throw new ServiceUnavailableException('Location service temporarily unavailable');
+    }
+  }
+
+  async searchNearbyDrivers(
+    latitude: number,
+    longitude: number,
+    radius: number,
+    limit: number,
+  ): Promise<SearchNearbyDriversResponseDto> {
+    const start = Date.now();
+
+    try {
+      // Execute GEORADIUS query (note: longitude first, then latitude)
+      const results = await this.redisService.georadius(
+        this.GEO_INDEX_KEY,
+        longitude, // longitude first!
+        latitude, // latitude second!
+        radius,
+        'km',
+        'WITHDIST',
+        'ASC',
+        'COUNT',
+        limit,
+      );
+
+      const executionTimeMs = Date.now() - start;
+
+      if (executionTimeMs > 500) {
+        this.logger.warn('Geospatial search exceeded 500ms threshold', {
+          latitude,
+          longitude,
+          radius,
+          executionTimeMs,
+        });
+      }
+
+      // If no results, return empty array
+      if (!results || results.length === 0) {
+        this.logger.log('Nearby drivers search', {
+          latitude,
+          longitude,
+          radius,
+          totalFound: 0,
+          executionTimeMs,
+        });
+
+        return {
+          drivers: [],
+          searchRadius: radius,
+          totalFound: 0,
+        };
+      }
+
+      // Extract driver IDs from results
+      // GEORADIUS WITHDIST returns: [[driverId, distance], [driverId, distance], ...]
+      const driverIds: string[] = [];
+      const distanceMap: { [key: string]: number } = {};
+
+      for (const result of results) {
+        const driverId = (result as [string, string])[0];
+        const distanceKm = parseFloat((result as [string, string])[1]);
+        driverIds.push(driverId);
+        distanceMap[driverId] = distanceKm;
+      }
+
+      // Fetch metadata for all drivers
+      const metadataKeys = driverIds.map((id) => `${this.LOCATION_KEY_PREFIX}${id}`);
+      const metadataValues = await this.redisService.mget(...metadataKeys);
+
+      // Parse metadata and filter to online drivers only
+      const onlineDrivers: NearbyDriverResponseDto[] = [];
+
+      for (let i = 0; i < metadataValues.length; i++) {
+        const metadataJson = metadataValues[i];
+
+        if (!metadataJson) {
+          // Key expired or doesn't exist, skip
+          continue;
+        }
+
+        try {
+          const metadata = JSON.parse(metadataJson);
+
+          // Only include online drivers
+          if (metadata.isOnline) {
+            onlineDrivers.push({
+              driverId: metadata.driverId,
+              latitude: metadata.latitude,
+              longitude: metadata.longitude,
+              distance: Math.round(distanceMap[metadata.driverId] * 1000), // Convert km to meters
+              isOnline: true,
+            });
+          }
+        } catch (parseError) {
+          this.logger.warn('Failed to parse driver metadata', {
+            driverId: driverIds[i],
+            error: parseError,
+          });
+          continue;
+        }
+      }
+
+      this.logger.log('Nearby drivers search', {
+        latitude,
+        longitude,
+        radius,
+        totalFound: onlineDrivers.length,
+        executionTimeMs,
+      });
+
+      return {
+        drivers: onlineDrivers,
+        searchRadius: radius,
+        totalFound: onlineDrivers.length,
+      };
+    } catch (error) {
+      this.logger.error('Redis geospatial search failed', {
+        error,
+        latitude,
+        longitude,
+        radius,
+        operation: 'searchNearbyDrivers',
+      });
+      throw new ServiceUnavailableException('Driver search service temporarily unavailable');
     }
   }
 }

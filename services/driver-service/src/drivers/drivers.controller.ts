@@ -1,17 +1,18 @@
-import { Controller, Put, Get, Body, UseGuards, Logger } from '@nestjs/common';
+import { Controller, Put, Get, Body, UseGuards, Logger, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { DriversService } from './drivers.service';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { DriverStatusResponseDto } from './dto/driver-status-response.dto';
 import { DriverLocationResponseDto } from './dto/driver-location-response.dto';
+import { SearchNearbyDriversDto } from './dto/search-nearby-drivers.dto';
+import { SearchNearbyDriversResponseDto } from './dto/search-nearby-drivers-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DriverRoleGuard } from '../auth/guards/driver-role.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('Drivers')
 @Controller('drivers')
-@UseGuards(JwtAuthGuard, DriverRoleGuard)
 @ApiBearerAuth()
 export class DriversController {
   private readonly logger = new Logger(DriversController.name);
@@ -19,6 +20,7 @@ export class DriversController {
   constructor(private readonly driversService: DriversService) {}
 
   @Put('status')
+  @UseGuards(JwtAuthGuard, DriverRoleGuard)
   @ApiOperation({ summary: 'Update driver online/offline status' })
   @ApiResponse({
     status: 200,
@@ -38,6 +40,7 @@ export class DriversController {
   }
 
   @Get('status')
+  @UseGuards(JwtAuthGuard, DriverRoleGuard)
   @ApiOperation({ summary: "Get current driver's status" })
   @ApiResponse({
     status: 200,
@@ -56,6 +59,7 @@ export class DriversController {
   }
 
   @Put('location')
+  @UseGuards(JwtAuthGuard, DriverRoleGuard)
   @ApiOperation({ summary: 'Update driver location' })
   @ApiResponse({
     status: 200,
@@ -72,5 +76,30 @@ export class DriversController {
   ): Promise<DriverLocationResponseDto> {
     this.logger.log(`Updating location for driver ${user.userId}`);
     return this.driversService.updateLocation(user.userId, updateLocationDto);
+  }
+
+  @Get('search')
+  @UseGuards(JwtAuthGuard) // Any authenticated user can search
+  @ApiOperation({ summary: 'Search for nearby drivers' })
+  @ApiResponse({
+    status: 200,
+    description: 'Search completed successfully',
+    type: SearchNearbyDriversResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid coordinates or radius' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 503, description: 'Service unavailable' })
+  async searchNearbyDrivers(
+    @Query() searchDto: SearchNearbyDriversDto,
+  ): Promise<SearchNearbyDriversResponseDto> {
+    this.logger.log(
+      `Searching nearby drivers: lat=${searchDto.latitude}, lng=${searchDto.longitude}, radius=${searchDto.radius}, limit=${searchDto.limit}`,
+    );
+    return this.driversService.searchNearbyDrivers(
+      searchDto.latitude,
+      searchDto.longitude,
+      searchDto.radius || 5,
+      searchDto.limit || 10,
+    );
   }
 }

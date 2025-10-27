@@ -13,6 +13,8 @@ describe('DriversService', () => {
     sadd: jest.fn(),
     srem: jest.fn(),
     geoadd: jest.fn(),
+    georadius: jest.fn(),
+    mget: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -320,6 +322,347 @@ describe('DriversService', () => {
 
     it('should throw error for invalid UUID', async () => {
       await expect(service.updateLocation('invalid-uuid', validLocationDto)).rejects.toThrow();
+    });
+  });
+
+  describe('searchNearbyDrivers', () => {
+    const searchParams = {
+      latitude: 10.762622,
+      longitude: 106.660172,
+      radius: 5,
+      limit: 10,
+    };
+
+    it('should return nearby online drivers sorted by distance', async () => {
+      const driver1Id = '550e8400-e29b-41d4-a716-446655440001';
+      const driver2Id = '550e8400-e29b-41d4-a716-446655440002';
+
+      // Mock GEORADIUS response (returns [driverId, distance_km] pairs)
+      mockRedisService.georadius.mockResolvedValue([
+        [driver1Id, '0.150'], // 150 meters
+        [driver2Id, '0.320'], // 320 meters
+      ]);
+
+      // Mock MGET response with location metadata
+      const metadata1 = {
+        driverId: driver1Id,
+        latitude: 10.762822,
+        longitude: 106.660372,
+        isOnline: true,
+        timestamp: new Date().toISOString(),
+      };
+      const metadata2 = {
+        driverId: driver2Id,
+        latitude: 10.765122,
+        longitude: 106.662172,
+        isOnline: true,
+        timestamp: new Date().toISOString(),
+      };
+      mockRedisService.mget.mockResolvedValue([
+        JSON.stringify(metadata1),
+        JSON.stringify(metadata2),
+      ]);
+
+      const result = await service.searchNearbyDrivers(
+        searchParams.latitude,
+        searchParams.longitude,
+        searchParams.radius,
+        searchParams.limit,
+      );
+
+      expect(result.drivers).toHaveLength(2);
+      expect(result.drivers[0]).toEqual({
+        driverId: driver1Id,
+        latitude: 10.762822,
+        longitude: 106.660372,
+        distance: 150, // km to meters conversion
+        isOnline: true,
+      });
+      expect(result.drivers[1]).toEqual({
+        driverId: driver2Id,
+        latitude: 10.765122,
+        longitude: 106.662172,
+        distance: 320,
+        isOnline: true,
+      });
+      expect(result.searchRadius).toBe(5);
+      expect(result.totalFound).toBe(2);
+
+      // Verify GEORADIUS called with correct parameters (longitude first!)
+      expect(mockRedisService.georadius).toHaveBeenCalledWith(
+        'driver:geo',
+        106.660172, // longitude first
+        10.762622, // latitude second
+        5,
+        'km',
+        'WITHDIST',
+        'ASC',
+        'COUNT',
+        10,
+      );
+
+      // Verify MGET called with correct keys
+      expect(mockRedisService.mget).toHaveBeenCalledWith(
+        `driver:location:${driver1Id}`,
+        `driver:location:${driver2Id}`,
+      );
+    });
+
+    it('should filter out offline drivers', async () => {
+      const driver1Id = '550e8400-e29b-41d4-a716-446655440001';
+      const driver2Id = '550e8400-e29b-41d4-a716-446655440002';
+      const driver3Id = '550e8400-e29b-41d4-a716-446655440003';
+
+      // Mock GEORADIUS with 3 drivers
+      mockRedisService.georadius.mockResolvedValue([
+        [driver1Id, '0.150'],
+        [driver2Id, '0.320'],
+        [driver3Id, '0.450'],
+      ]);
+
+      // Mock MGET: driver1 online, driver2 offline, driver3 online
+      const metadata1 = {
+        driverId: driver1Id,
+        latitude: 10.762822,
+        longitude: 106.660372,
+        isOnline: true,
+        timestamp: new Date().toISOString(),
+      };
+      const metadata2 = {
+        driverId: driver2Id,
+        latitude: 10.765122,
+        longitude: 106.662172,
+        isOnline: false, // OFFLINE
+        timestamp: new Date().toISOString(),
+      };
+      const metadata3 = {
+        driverId: driver3Id,
+        latitude: 10.767122,
+        longitude: 106.664172,
+        isOnline: true,
+        timestamp: new Date().toISOString(),
+      };
+      mockRedisService.mget.mockResolvedValue([
+        JSON.stringify(metadata1),
+        JSON.stringify(metadata2),
+        JSON.stringify(metadata3),
+      ]);
+
+      const result = await service.searchNearbyDrivers(
+        searchParams.latitude,
+        searchParams.longitude,
+        searchParams.radius,
+        searchParams.limit,
+      );
+
+      // Should only return 2 online drivers (driver2 filtered out)
+      expect(result.drivers).toHaveLength(2);
+      expect(result.drivers.find((d) => d.driverId === driver1Id)).toBeDefined();
+      expect(result.drivers.find((d) => d.driverId === driver2Id)).toBeUndefined();
+      expect(result.drivers.find((d) => d.driverId === driver3Id)).toBeDefined();
+      expect(result.totalFound).toBe(2);
+    });
+
+    it('should convert distance from km to meters', async () => {
+      const driverId = '550e8400-e29b-41d4-a716-446655440001';
+
+      mockRedisService.georadius.mockResolvedValue([[driverId, '1.5']]); // 1.5 km
+
+      const metadata = {
+        driverId,
+        latitude: 10.762822,
+        longitude: 106.660372,
+        isOnline: true,
+        timestamp: new Date().toISOString(),
+      };
+      mockRedisService.mget.mockResolvedValue([JSON.stringify(metadata)]);
+
+      const result = await service.searchNearbyDrivers(
+        searchParams.latitude,
+        searchParams.longitude,
+        searchParams.radius,
+        searchParams.limit,
+      );
+
+      expect(result.drivers[0].distance).toBe(1500); // 1.5 km = 1500 meters
+    });
+
+    it('should return empty array when no drivers found', async () => {
+      mockRedisService.georadius.mockResolvedValue([]);
+
+      const result = await service.searchNearbyDrivers(
+        searchParams.latitude,
+        searchParams.longitude,
+        searchParams.radius,
+        searchParams.limit,
+      );
+
+      expect(result.drivers).toEqual([]);
+      expect(result.searchRadius).toBe(5);
+      expect(result.totalFound).toBe(0);
+    });
+
+    it('should return empty array when all nearby drivers are offline', async () => {
+      const driver1Id = '550e8400-e29b-41d4-a716-446655440001';
+      const driver2Id = '550e8400-e29b-41d4-a716-446655440002';
+
+      mockRedisService.georadius.mockResolvedValue([
+        [driver1Id, '0.150'],
+        [driver2Id, '0.320'],
+      ]);
+
+      // Both drivers offline
+      const metadata1 = {
+        driverId: driver1Id,
+        latitude: 10.762822,
+        longitude: 106.660372,
+        isOnline: false,
+        timestamp: new Date().toISOString(),
+      };
+      const metadata2 = {
+        driverId: driver2Id,
+        latitude: 10.765122,
+        longitude: 106.662172,
+        isOnline: false,
+        timestamp: new Date().toISOString(),
+      };
+      mockRedisService.mget.mockResolvedValue([
+        JSON.stringify(metadata1),
+        JSON.stringify(metadata2),
+      ]);
+
+      const result = await service.searchNearbyDrivers(
+        searchParams.latitude,
+        searchParams.longitude,
+        searchParams.radius,
+        searchParams.limit,
+      );
+
+      expect(result.drivers).toEqual([]);
+      expect(result.totalFound).toBe(0);
+    });
+
+    it('should pass limit parameter correctly to GEORADIUS', async () => {
+      mockRedisService.georadius.mockResolvedValue([]);
+
+      await service.searchNearbyDrivers(
+        searchParams.latitude,
+        searchParams.longitude,
+        searchParams.radius,
+        20, // custom limit
+      );
+
+      expect(mockRedisService.georadius).toHaveBeenCalledWith(
+        'driver:geo',
+        expect.any(Number),
+        expect.any(Number),
+        expect.any(Number),
+        'km',
+        'WITHDIST',
+        'ASC',
+        'COUNT',
+        20, // verify limit passed correctly
+      );
+    });
+
+    it('should pass radius parameter correctly to GEORADIUS', async () => {
+      mockRedisService.georadius.mockResolvedValue([]);
+
+      await service.searchNearbyDrivers(
+        searchParams.latitude,
+        searchParams.longitude,
+        10, // custom radius
+        searchParams.limit,
+      );
+
+      expect(mockRedisService.georadius).toHaveBeenCalledWith(
+        'driver:geo',
+        expect.any(Number),
+        expect.any(Number),
+        10, // verify radius passed correctly
+        'km',
+        'WITHDIST',
+        'ASC',
+        'COUNT',
+        expect.any(Number),
+      );
+    });
+
+    it('should handle expired location keys gracefully', async () => {
+      const driver1Id = '550e8400-e29b-41d4-a716-446655440001';
+      const driver2Id = '550e8400-e29b-41d4-a716-446655440002';
+
+      mockRedisService.georadius.mockResolvedValue([
+        [driver1Id, '0.150'],
+        [driver2Id, '0.320'],
+      ]);
+
+      // driver1 metadata exists, driver2 expired (null)
+      const metadata1 = {
+        driverId: driver1Id,
+        latitude: 10.762822,
+        longitude: 106.660372,
+        isOnline: true,
+        timestamp: new Date().toISOString(),
+      };
+      mockRedisService.mget.mockResolvedValue([JSON.stringify(metadata1), null]);
+
+      const result = await service.searchNearbyDrivers(
+        searchParams.latitude,
+        searchParams.longitude,
+        searchParams.radius,
+        searchParams.limit,
+      );
+
+      // Should only return driver1 (driver2 skipped due to expired key)
+      expect(result.drivers).toHaveLength(1);
+      expect(result.drivers[0].driverId).toBe(driver1Id);
+      expect(result.totalFound).toBe(1);
+    });
+
+    it('should handle malformed JSON gracefully', async () => {
+      const driver1Id = '550e8400-e29b-41d4-a716-446655440001';
+      const driver2Id = '550e8400-e29b-41d4-a716-446655440002';
+
+      mockRedisService.georadius.mockResolvedValue([
+        [driver1Id, '0.150'],
+        [driver2Id, '0.320'],
+      ]);
+
+      // driver1 valid JSON, driver2 malformed
+      const metadata1 = {
+        driverId: driver1Id,
+        latitude: 10.762822,
+        longitude: 106.660372,
+        isOnline: true,
+        timestamp: new Date().toISOString(),
+      };
+      mockRedisService.mget.mockResolvedValue([JSON.stringify(metadata1), 'invalid-json']);
+
+      const result = await service.searchNearbyDrivers(
+        searchParams.latitude,
+        searchParams.longitude,
+        searchParams.radius,
+        searchParams.limit,
+      );
+
+      // Should only return driver1 (driver2 skipped due to parse error)
+      expect(result.drivers).toHaveLength(1);
+      expect(result.drivers[0].driverId).toBe(driver1Id);
+      expect(result.totalFound).toBe(1);
+    });
+
+    it('should throw ServiceUnavailableException when Redis fails', async () => {
+      mockRedisService.georadius.mockRejectedValue(new Error('Redis connection failed'));
+
+      await expect(
+        service.searchNearbyDrivers(
+          searchParams.latitude,
+          searchParams.longitude,
+          searchParams.radius,
+          searchParams.limit,
+        ),
+      ).rejects.toThrow(ServiceUnavailableException);
     });
   });
 });

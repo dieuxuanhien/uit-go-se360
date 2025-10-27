@@ -345,4 +345,343 @@ describe('Driver Status (e2e)', () => {
       expect(ttl).toBeLessThanOrEqual(300);
     });
   });
+
+  describe('GET /drivers/search', () => {
+    // Test driver IDs and tokens
+    const driver1Id = '550e8400-e29b-41d4-a716-446655440001';
+    const driver2Id = '550e8400-e29b-41d4-a716-446655440002';
+    const driver3Id = '550e8400-e29b-41d4-a716-446655440003';
+
+    // // JWT tokens for test drivers
+    // const driver1Token =
+    //   'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDEiLCJlbWFpbCI6ImRyaXZlcjFAZXhhbXBsZS5jb20iLCJyb2xlIjoiRFJJVkVSIiwiaWF0IjoxNzYxNTAzOTg0LCJleHAiOjE3NjQwOTU5ODR9.JLdYWpnZJTLz1FqVrmT3TjWq9WcPZ0qPn8aGjzWb-P4';
+    // const driver2Token =
+    //   'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDIiLCJlbWFpbCI6ImRyaXZlcjJAZXhhbXBsZS5jb20iLCJyb2xlIjoiRFJJVkVSIiwiaWF0IjoxNzYxNTAzOTg0LCJleHAiOjE3NjQwOTU5ODR9.mO2qR3G1XWlM5FqQm_Qi6mU-7Xk0gPh9bZcNjR4vE8Y';
+    // const driver3Token =
+    //   'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDMiLCJlbWFpbCI6ImRyaXZlcjNAZXhhbXBsZS5jb20iLCJyb2xlIjoiRFJJVkVSIiwiaWF0IjoxNzYxNTAzOTg0LCJleHAiOjE3NjQwOTU5ODR9.k8PzY3N0RvLp4Jj_Wb5Hn7dX-2Mz9qFl1sUwV6gT0cI';
+
+    // Test location near HCMC University of Information Technology
+    const searchCenter = {
+      latitude: 10.762622,
+      longitude: 106.660172,
+    };
+
+    // Nearby locations
+    const location1 = {
+      latitude: 10.762822, // ~22m from center
+      longitude: 106.660372,
+    };
+    const location2 = {
+      latitude: 10.765122, // ~278m from center
+      longitude: 106.662172,
+    };
+    const location3 = {
+      latitude: 10.77, // ~900m from center
+      longitude: 106.668,
+    };
+
+    beforeEach(async () => {
+      // Clean Redis before each test
+      await redisService.flushdb();
+
+      // Setup driver1: online with location
+      await redisService.set(
+        `driver:status:${driver1Id}`,
+        JSON.stringify({
+          driverId: driver1Id,
+          isOnline: true,
+          timestamp: new Date().toISOString(),
+        }),
+      );
+      await redisService.geoadd('driver:geo', location1.longitude, location1.latitude, driver1Id);
+      await redisService.set(
+        `driver:location:${driver1Id}`,
+        JSON.stringify({
+          driverId: driver1Id,
+          latitude: location1.latitude,
+          longitude: location1.longitude,
+          isOnline: true,
+          timestamp: new Date().toISOString(),
+        }),
+        'EX',
+        300,
+      );
+
+      // Setup driver2: online with location
+      await redisService.set(
+        `driver:status:${driver2Id}`,
+        JSON.stringify({
+          driverId: driver2Id,
+          isOnline: true,
+          timestamp: new Date().toISOString(),
+        }),
+      );
+      await redisService.geoadd('driver:geo', location2.longitude, location2.latitude, driver2Id);
+      await redisService.set(
+        `driver:location:${driver2Id}`,
+        JSON.stringify({
+          driverId: driver2Id,
+          latitude: location2.latitude,
+          longitude: location2.longitude,
+          isOnline: true,
+          timestamp: new Date().toISOString(),
+        }),
+        'EX',
+        300,
+      );
+
+      // Setup driver3: offline with location
+      await redisService.set(
+        `driver:status:${driver3Id}`,
+        JSON.stringify({
+          driverId: driver3Id,
+          isOnline: false,
+          timestamp: new Date().toISOString(),
+        }),
+      );
+      await redisService.geoadd('driver:geo', location3.longitude, location3.latitude, driver3Id);
+      await redisService.set(
+        `driver:location:${driver3Id}`,
+        JSON.stringify({
+          driverId: driver3Id,
+          latitude: location3.latitude,
+          longitude: location3.longitude,
+          isOnline: false,
+          timestamp: new Date().toISOString(),
+        }),
+        'EX',
+        300,
+      );
+    });
+
+    it('should search nearby drivers with default parameters (authenticated)', async () => {
+      const startTime = Date.now();
+
+      const response = await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude })
+        .expect(200);
+
+      const executionTime = Date.now() - startTime;
+
+      expect(response.body).toHaveProperty('drivers');
+      expect(response.body).toHaveProperty('searchRadius', 5);
+      expect(response.body).toHaveProperty('totalFound');
+
+      // Should only return online drivers (driver1 and driver2, not driver3)
+      expect(response.body.drivers.length).toBe(2);
+      expect(response.body.totalFound).toBe(2);
+
+      // Verify drivers are sorted by distance (closest first)
+      expect(response.body.drivers[0].driverId).toBe(driver1Id);
+      expect(response.body.drivers[1].driverId).toBe(driver2Id);
+
+      // Verify driver1 details
+      expect(response.body.drivers[0]).toHaveProperty('latitude', location1.latitude);
+      expect(response.body.drivers[0]).toHaveProperty('longitude', location1.longitude);
+      expect(response.body.drivers[0]).toHaveProperty('distance');
+      expect(response.body.drivers[0].distance).toBeGreaterThan(0); // in meters
+      expect(response.body.drivers[0].distance).toBeLessThan(100); // ~22m
+      expect(response.body.drivers[0]).toHaveProperty('isOnline', true);
+
+      // Verify driver2 details
+      expect(response.body.drivers[1]).toHaveProperty('latitude', location2.latitude);
+      expect(response.body.drivers[1]).toHaveProperty('longitude', location2.longitude);
+      expect(response.body.drivers[1]).toHaveProperty('distance');
+      expect(response.body.drivers[1].distance).toBeGreaterThan(200); // ~278m
+      expect(response.body.drivers[1].distance).toBeLessThan(400);
+      expect(response.body.drivers[1]).toHaveProperty('isOnline', true);
+
+      // Verify query executes quickly (under 500ms)
+      expect(executionTime).toBeLessThan(500);
+    });
+
+    it('should search with custom radius parameter', async () => {
+      const response = await request
+        .get('/drivers/search')
+        .set('Authorization', passengerToken) // Passenger can also search
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude, radius: 10 })
+        .expect(200);
+
+      expect(response.body.searchRadius).toBe(10);
+      expect(response.body.drivers.length).toBe(2); // Still 2 online drivers
+    });
+
+    it('should search with custom limit parameter', async () => {
+      const response = await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude, limit: 1 })
+        .expect(200);
+
+      expect(response.body.drivers.length).toBe(1);
+      expect(response.body.totalFound).toBe(1);
+      expect(response.body.drivers[0].driverId).toBe(driver1Id); // Closest driver
+    });
+
+    it('should return empty array when no nearby drivers exist', async () => {
+      // Search in a location far from all drivers
+      const response = await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: 20.0, longitude: 120.0, radius: 5 })
+        .expect(200);
+
+      expect(response.body.drivers).toEqual([]);
+      expect(response.body.searchRadius).toBe(5);
+      expect(response.body.totalFound).toBe(0);
+    });
+
+    it('should return empty array when only offline drivers are nearby', async () => {
+      // Clean Redis and set only offline drivers
+      await redisService.flushdb();
+
+      await redisService.geoadd('driver:geo', location1.longitude, location1.latitude, driver1Id);
+      await redisService.set(
+        `driver:location:${driver1Id}`,
+        JSON.stringify({
+          driverId: driver1Id,
+          latitude: location1.latitude,
+          longitude: location1.longitude,
+          isOnline: false, // OFFLINE
+          timestamp: new Date().toISOString(),
+        }),
+        'EX',
+        300,
+      );
+
+      const response = await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude })
+        .expect(200);
+
+      expect(response.body.drivers).toEqual([]);
+      expect(response.body.totalFound).toBe(0);
+    });
+
+    it('should return 401 without authentication', async () => {
+      await request
+        .get('/drivers/search')
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude })
+        .expect(401);
+    });
+
+    it('should return 400 for invalid latitude (91)', async () => {
+      await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: 91, longitude: searchCenter.longitude })
+        .expect(400);
+    });
+
+    it('should return 400 for invalid latitude (-91)', async () => {
+      await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: -91, longitude: searchCenter.longitude })
+        .expect(400);
+    });
+
+    it('should return 400 for invalid longitude (181)', async () => {
+      await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude, longitude: 181 })
+        .expect(400);
+    });
+
+    it('should return 400 for invalid longitude (-181)', async () => {
+      await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude, longitude: -181 })
+        .expect(400);
+    });
+
+    it('should return 400 for invalid radius (51)', async () => {
+      await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude, radius: 51 })
+        .expect(400);
+    });
+
+    it('should return 400 for invalid radius (0)', async () => {
+      await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude, radius: 0 })
+        .expect(400);
+    });
+
+    it('should return 400 for invalid limit (0)', async () => {
+      await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude, limit: 0 })
+        .expect(400);
+    });
+
+    it('should return 400 for invalid limit (51)', async () => {
+      await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude, limit: 51 })
+        .expect(400);
+    });
+
+    it('should return 400 for missing latitude', async () => {
+      await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ longitude: searchCenter.longitude })
+        .expect(400);
+    });
+
+    it('should return 400 for missing longitude', async () => {
+      await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude })
+        .expect(400);
+    });
+
+    it('should verify distance values are in meters and accurate', async () => {
+      const response = await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude })
+        .expect(200);
+
+      // driver1 should be ~22m away
+      expect(response.body.drivers[0].distance).toBeGreaterThan(0);
+      expect(response.body.drivers[0].distance).toBeLessThan(100);
+
+      // driver2 should be ~278m away
+      expect(response.body.drivers[1].distance).toBeGreaterThan(200);
+      expect(response.body.drivers[1].distance).toBeLessThan(400);
+
+      // Distances should be integers (meters)
+      expect(Number.isInteger(response.body.drivers[0].distance)).toBe(true);
+      expect(Number.isInteger(response.body.drivers[1].distance)).toBe(true);
+    });
+
+    it('should allow any authenticated user (DRIVER or PASSENGER) to search', async () => {
+      // Test with driver token
+      await request
+        .get('/drivers/search')
+        .set('Authorization', driverToken)
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude })
+        .expect(200);
+
+      // Test with passenger token
+      await request
+        .get('/drivers/search')
+        .set('Authorization', passengerToken)
+        .query({ latitude: searchCenter.latitude, longitude: searchCenter.longitude })
+        .expect(200);
+    });
+  });
 });
