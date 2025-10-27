@@ -1,16 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { UsersService } from '../../../src/users/users.service';
-import { DatabaseService } from '../../../src/database/database.service';
+import { UsersRepository } from '../../../src/users/users.repository';
 
 describe('UsersService', () => {
   let service: UsersService;
-  let _databaseService: DatabaseService;
+  let _repository: UsersRepository;
 
-  const mockDatabaseService = {
-    user: {
-      findUnique: jest.fn(),
-    },
+  const mockUsersRepository = {
+    findById: jest.fn(),
+    findByEmail: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -18,14 +20,14 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         {
-          provide: DatabaseService,
-          useValue: mockDatabaseService,
+          provide: UsersRepository,
+          useValue: mockUsersRepository,
         },
       ],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    _databaseService = module.get<DatabaseService>(DatabaseService);
+    _repository = module.get<UsersRepository>(UsersRepository);
   });
 
   afterEach(() => {
@@ -46,7 +48,7 @@ describe('UsersService', () => {
     };
 
     it('should return user without password hash', async () => {
-      mockDatabaseService.user.findUnique.mockResolvedValue(mockUser);
+      mockUsersRepository.findById.mockResolvedValue(mockUser);
 
       const result = await service.getUserById('user-123');
 
@@ -61,13 +63,11 @@ describe('UsersService', () => {
         updatedAt: mockUser.updatedAt,
       });
       expect(result).not.toHaveProperty('passwordHash');
-      expect(mockDatabaseService.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 'user-123' },
-      });
+      expect(mockUsersRepository.findById).toHaveBeenCalledWith('user-123');
     });
 
     it('should throw NotFoundException when user not found', async () => {
-      mockDatabaseService.user.findUnique.mockResolvedValue(null);
+      mockUsersRepository.findById.mockResolvedValue(null);
 
       await expect(service.getUserById('non-existent')).rejects.toThrow(
         new NotFoundException('User not found'),
@@ -89,7 +89,7 @@ describe('UsersService', () => {
     };
 
     it('should return user without password hash', async () => {
-      mockDatabaseService.user.findUnique.mockResolvedValue(mockUser);
+      mockUsersRepository.findByEmail.mockResolvedValue(mockUser);
 
       const result = await service.getUserByEmail('jane@example.com');
 
@@ -104,13 +104,13 @@ describe('UsersService', () => {
         updatedAt: mockUser.updatedAt,
       });
       expect(result).not.toHaveProperty('passwordHash');
-      expect(mockDatabaseService.user.findUnique).toHaveBeenCalledWith({
-        where: { email: 'jane@example.com' },
-      });
+      expect(mockUsersRepository.findByEmail).toHaveBeenCalledWith(
+        'jane@example.com',
+      );
     });
 
     it('should throw NotFoundException when user not found', async () => {
-      mockDatabaseService.user.findUnique.mockResolvedValue(null);
+      mockUsersRepository.findByEmail.mockResolvedValue(null);
 
       await expect(
         service.getUserByEmail('notfound@example.com'),

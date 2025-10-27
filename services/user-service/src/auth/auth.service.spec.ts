@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
-import { DatabaseService } from '../database/database.service';
+import { UsersRepository } from '../users/users.repository';
 
 /**
  * Auth Service Unit Tests
@@ -10,15 +10,16 @@ import { DatabaseService } from '../database/database.service';
  */
 describe('AuthService', () => {
   let service: AuthService;
-  let mockDatabaseService: any;
+  let mockUsersRepository: any;
   let mockJwtService: any;
 
   beforeEach(async () => {
-    mockDatabaseService = {
-      user: {
-        create: jest.fn(),
-        findUnique: jest.fn(),
-      },
+    mockUsersRepository = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findByEmail: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     };
 
     mockJwtService = {
@@ -29,8 +30,8 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         {
-          provide: DatabaseService,
-          useValue: mockDatabaseService,
+          provide: UsersRepository,
+          useValue: mockUsersRepository,
         },
         {
           provide: JwtService,

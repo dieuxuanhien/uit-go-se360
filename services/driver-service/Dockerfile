@@ -20,38 +20,41 @@ COPY packages packages
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
-COPY services/driver-service services/driver-service
-
-# Build the service
+# Generate Prisma Client
 WORKDIR /app/services/driver-service
+
+
+
+# Copy source code
+COPY services/driver-service/src ./src
+COPY services/driver-service/tsconfig*.json ./
+COPY services/driver-service/nest-cli.json ./
+
+# Build NestJS application
 RUN pnpm build
 
 # Runtime stage
 FROM node:20-alpine
 
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
-
 # Copy workspace files
-COPY pnpm-workspace.yaml .
-COPY package.json .
-COPY pnpm-lock.yaml .
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
 
-# Copy service package.json
-COPY services/driver-service/package.json services/driver-service/
+# Copy node_modules (includes Prisma Client)
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
 
-# Copy shared packages
-COPY packages packages
+# Copy service files
+COPY --from=builder /app/services/driver-service/package.json ./services/driver-service/package.json
+COPY --from=builder /app/services/driver-service/node_modules ./services/driver-service/node_modules
 
-# Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod
-
-# Copy built application from builder
-COPY --from=builder /app/services/driver-service/dist /app/services/driver-service/dist
-COPY --from=builder /app/services/driver-service/prisma /app/services/driver-service/prisma
+COPY --from=builder /app/services/driver-service/dist ./services/driver-service/dist
 
 WORKDIR /app/services/driver-service
 
@@ -63,4 +66,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3003/health || exit 1
 
 # Start the service
-CMD ["node", "dist/main"]
+CMD ["node", "dist/main.js"]

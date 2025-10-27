@@ -7,10 +7,9 @@ info:
     This specification covers all three core services: UserService, TripService, and DriverService.
 
     **Base URLs:**
-    - UserService: https://api.uitgo.example.com/users
-    - TripService: https://api.uitgo.example.com/trips
-    - DriverService: https://api.uitgo.example.com/drivers
-
+    - UserService: http://localhost:3001/
+    - TripService: http://localhost:3002/
+    - DriverService: http://localhost:3003/
     **Authentication:**
     All protected endpoints require a JWT Bearer token in the Authorization header.
 

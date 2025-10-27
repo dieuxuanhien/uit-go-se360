@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { DatabaseService } from '../database/database.service';
+import { UsersRepository } from '../users/users.repository';
 import {
   RegisterRequestDto,
   LoginRequestDto,
@@ -23,7 +23,7 @@ export class AuthService {
   private readonly SALT_ROUNDS = 10;
 
   constructor(
-    private readonly databaseService: DatabaseService,
+    private readonly repository: UsersRepository,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -36,9 +36,7 @@ export class AuthService {
    */
   async register(dto: RegisterRequestDto): Promise<AuthResponseDto> {
     // Check if user already exists
-    const existingUser = await this.databaseService.user.findUnique({
-      where: { email: dto.email },
-    });
+    const existingUser = await this.repository.findByEmail(dto.email);
 
     if (existingUser) {
       this.logger.warn(
@@ -51,15 +49,13 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(dto.password, this.SALT_ROUNDS);
 
     // Create user
-    const user = await this.databaseService.user.create({
-      data: {
-        email: dto.email,
-        passwordHash: hashedPassword,
-        role: dto.role,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        phoneNumber: dto.phoneNumber,
-      },
+    const user = await this.repository.create({
+      email: dto.email,
+      passwordHash: hashedPassword,
+      role: dto.role,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phoneNumber: dto.phoneNumber,
     });
 
     this.logger.log(`User registered: ${user.email}`);
@@ -81,9 +77,7 @@ export class AuthService {
    */
   async login(dto: LoginRequestDto): Promise<AuthResponseDto> {
     // Find user by email
-    const user = await this.databaseService.user.findUnique({
-      where: { email: dto.email },
-    });
+    const user = await this.repository.findByEmail(dto.email);
 
     if (!user) {
       this.logger.warn(`Login attempt with non-existent email: ${dto.email}`);
@@ -115,9 +109,7 @@ export class AuthService {
    * @returns User data or null if not found
    */
   async validateUser(userId: string) {
-    return this.databaseService.user.findUnique({
-      where: { id: userId },
-    });
+    return this.repository.findById(userId);
   }
 
   /**

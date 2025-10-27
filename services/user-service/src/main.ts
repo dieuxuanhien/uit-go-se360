@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
@@ -26,10 +27,28 @@ async function bootstrap() {
   // Apply global HTTP exception filter for consistent error handling
   app.useGlobalFilters(new HttpExceptionFilter());
 
+  // Setup Swagger
+  const config = new DocumentBuilder()
+    .setTitle('User Service API')
+    .setDescription('API documentation for the User Service')
+    .setVersion('1.0')
+    .addTag('Auth')
+    .addTag('Users')
+    .addTag('Driver Profiles')
+    .addTag('Health')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
+
   const port = process.env.USER_SERVICE_PORT ?? 3001;
   await app.listen(port);
   // eslint-disable-next-line no-console
   console.log(`User Service is running on port ${port}`);
+  // eslint-disable-next-line no-console
+  console.log(
+    `Swagger documentation available at http://localhost:${port}/api`,
+  );
 }
 
 bootstrap().catch((error) => {

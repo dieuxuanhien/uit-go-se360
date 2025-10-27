@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { UsersRepository } from './users.repository';
 
 /**
  * Users Service
- * Handles user data operations (read-only for now)
+ * Handles user business logic and operations
  */
 @Injectable()
 export class UsersService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(private readonly repository: UsersRepository) {}
 
   /**
    * Get user by ID
@@ -16,9 +16,7 @@ export class UsersService {
    * @throws NotFoundException if user not found
    */
   async getUserById(userId: string) {
-    const user = await this.databaseService.user.findUnique({
-      where: { id: userId },
-    });
+    const user = await this.repository.findById(userId);
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -34,9 +32,7 @@ export class UsersService {
    * @returns User data excluding password
    */
   async getUserByEmail(email: string) {
-    const user = await this.databaseService.user.findUnique({
-      where: { email },
-    });
+    const user = await this.repository.findByEmail(email);
 
     if (!user) {
       throw new NotFoundException('User not found');
