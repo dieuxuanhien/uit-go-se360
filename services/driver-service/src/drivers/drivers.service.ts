@@ -1,13 +1,24 @@
-import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 import { DriverStatusResponseDto } from './dto/driver-status-response.dto';
+import { UpdateLocationDto } from './dto/update-location.dto';
+import { DriverLocationResponseDto } from './dto/driver-location-response.dto';
 // import { validate as isUuid } from 'uuid';
 
 @Injectable()
 export class DriversService {
   private readonly logger = new Logger(DriversService.name);
   private readonly STATUS_TTL = 3600; // 1 hour in seconds
+  private readonly LOCATION_TTL = 300; // 5 minutes in seconds
   private readonly STATUS_KEY_PREFIX = 'driver:status:';
+  private readonly LOCATION_KEY_PREFIX = 'driver:location:';
+  private readonly GEO_INDEX_KEY = 'driver:geo';
   private readonly ONLINE_DRIVERS_SET = 'driver:online';
 
   constructor(private readonly redisService: RedisService) {}
@@ -75,6 +86,75 @@ export class DriversService {
       }
       this.logger.error('Failed to retrieve driver status', { driverId, error });
       throw new ServiceUnavailableException('Status service temporarily unavailable');
+    }
+  }
+
+  async updateLocation(
+    driverId: string,
+    dto: UpdateLocationDto,
+  ): Promise<DriverLocationResponseDto> {
+    // Validate UUID
+    if (!this.isValidUuid(driverId)) {
+      throw new Error('Invalid driver ID format');
+    }
+
+    const statusKey = `${this.STATUS_KEY_PREFIX}${driverId}`;
+    const locationKey = `${this.LOCATION_KEY_PREFIX}${driverId}`;
+
+    try {
+      // Check driver status in Redis
+      const statusJson = await this.redisService.get(statusKey);
+
+      if (!statusJson) {
+        throw new ForbiddenException('Driver must be online to update location');
+      }
+
+      const status = JSON.parse(statusJson);
+      if (!status.isOnline) {
+        throw new ForbiddenException('Driver must be online to update location');
+      }
+
+      const timestamp = new Date().toISOString();
+      const locationData: DriverLocationResponseDto = {
+        driverId,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        isOnline: true,
+        heading: dto.heading,
+        speed: dto.speed,
+        accuracy: dto.accuracy,
+        timestamp,
+      };
+
+      // Store location in Redis geospatial index (GEOADD uses lng, lat order)
+      await this.redisService.geoadd(this.GEO_INDEX_KEY, dto.longitude, dto.latitude, driverId);
+
+      // Store location metadata
+      await this.redisService.set(
+        locationKey,
+        JSON.stringify(locationData),
+        'EX',
+        this.LOCATION_TTL,
+      );
+
+      this.logger.log('Location updated', {
+        driverId,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        timestamp,
+      });
+
+      return locationData;
+    } catch (error) {
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.logger.error('Redis operation failed', {
+        error,
+        driverId,
+        operation: 'updateLocation',
+      });
+      throw new ServiceUnavailableException('Location service temporarily unavailable');
     }
   }
 }

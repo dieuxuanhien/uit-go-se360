@@ -54,6 +54,15 @@ Update driver online/offline status.
 - `403 Forbidden`: User is not a DRIVER
 - `503 Service Unavailable`: Redis connection failed
 
+**Example curl command**:
+
+```bash
+curl -X PUT http://localhost:3003/drivers/status \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"isOnline": true}'
+```
+
 #### GET /drivers/status
 
 Get current driver's status.
@@ -76,6 +85,86 @@ Get current driver's status.
 - `403 Forbidden`: User is not a DRIVER
 - `404 Not Found`: Status not found for driver
 - `503 Service Unavailable`: Redis connection failed
+
+**Example curl command**:
+
+```bash
+curl -X GET http://localhost:3003/drivers/status \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### Driver Location Tracking
+
+#### PUT /drivers/location
+
+Update driver's current GPS location. Only online drivers can update their location.
+
+**Authentication**: Required (JWT Bearer token, DRIVER role only)
+
+**Location Update Frequency**: Recommended every 5-10 seconds while driver is online.
+
+**Request Body**:
+
+```json
+{
+  "latitude": 10.762622,
+  "longitude": 106.660172,
+  "heading": 45,
+  "speed": 30,
+  "accuracy": 10
+}
+```
+
+**Request Fields**:
+
+- `latitude` (required): GPS latitude, must be between -90 and 90
+- `longitude` (required): GPS longitude, must be between -180 and 180
+- `heading` (optional): Direction of travel in degrees, 0-359
+- `speed` (optional): Speed in km/h
+- `accuracy` (optional): GPS accuracy in meters
+
+**Response** (200 OK):
+
+```json
+{
+  "driverId": "550e8400-e29b-41d4-a716-446655440000",
+  "latitude": 10.762622,
+  "longitude": 106.660172,
+  "isOnline": true,
+  "heading": 45,
+  "speed": 30,
+  "accuracy": 10,
+  "timestamp": "2025-10-27T10:00:00.000Z"
+}
+```
+
+**Error Responses**:
+
+- `400 Bad Request`: Invalid coordinates (latitude not in [-90, 90] or longitude not in [-180, 180])
+- `401 Unauthorized`: Missing or invalid JWT token
+- `403 Forbidden`: Driver is offline or user is not a DRIVER role
+- `503 Service Unavailable`: Redis connection failure
+
+**Example curl command**:
+
+```bash
+curl -X PUT http://localhost:3003/drivers/location \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "latitude": 10.762622,
+    "longitude": 106.660172,
+    "heading": 45,
+    "speed": 30,
+    "accuracy": 10
+  }'
+```
+
+**TTL Behavior**:
+
+- Location data expires after 5 minutes (300 seconds) if no updates received
+- Driver automatically removed from search if location not updated
+- Allows for temporary connection loss without immediately removing driver
 
 ### Health Check
 
@@ -146,6 +235,33 @@ Service health check endpoint.
 - **Pattern**: `driver:online`
 - **Type**: Set
 - **Members**: Driver UUIDs of currently online drivers
+
+### Location Keys
+
+- **Pattern**: `driver:location:{driverId}`
+- **Type**: String (JSON)
+- **TTL**: 300 seconds (5 minutes)
+- **Value**:
+  ```json
+  {
+    "driverId": "uuid",
+    "latitude": 10.762622,
+    "longitude": 106.660172,
+    "isOnline": true,
+    "heading": 45,
+    "speed": 30,
+    "accuracy": 10,
+    "timestamp": "ISO 8601 datetime"
+  }
+  ```
+
+### Geospatial Index
+
+- **Pattern**: `driver:geo`
+- **Type**: Sorted Set (ZSET) - Redis Geospatial Index
+- **Members**: Driver UUIDs with latitude/longitude coordinates
+- **Purpose**: Enable fast nearby driver search using GEORADIUS/GEOSEARCH commands
+- **Storage**: Uses GEOADD command with longitude, latitude order
 
 ## Local Development Setup
 
@@ -278,7 +394,9 @@ src/
 │   ├── drivers.module.ts
 │   └── dto/
 │       ├── update-status.dto.ts
-│       └── driver-status-response.dto.ts
+│       ├── driver-status-response.dto.ts
+│       ├── update-location.dto.ts
+│       └── driver-location-response.dto.ts
 ├── health/                 # Health check
 │   └── health.controller.ts
 └── redis/                  # Redis module
@@ -291,8 +409,10 @@ src/
 #### DriversService
 
 - Manages driver status updates and retrieval
+- Manages driver location updates
 - Interacts with Redis for data storage
-- Implements business logic for status management
+- Implements business logic for status and location management
+- Handles geospatial indexing for location data
 
 #### RedisService
 
@@ -329,11 +449,11 @@ src/
 
 Planned features for subsequent stories:
 
-- Driver location tracking (Story 3.2)
-- Geospatial nearby driver search (Story 3.2)
+- Geospatial nearby driver search (Story 3.3)
 - Driver location update history
 - Status change event notifications
 - Advanced driver availability rules (e.g., scheduled breaks, geofence restrictions)
+- Real-time location streaming via WebSocket
 
 ## Related Documentation
 

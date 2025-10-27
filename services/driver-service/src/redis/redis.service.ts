@@ -54,7 +54,7 @@ export class RedisService extends Redis implements OnModuleInit, OnModuleDestroy
       // `status` property which will be 'end' when connection is closed. Calling
       // quit more than once can lead to "Connection is closed" errors during
       // test teardown when consumers also call quit(). Make this idempotent.
-      if ((this as any).status !== 'end') {
+      if ((this as Redis).status !== 'end') {
         await this.quit();
         this.logger.log('Redis connection closed gracefully');
       } else {
