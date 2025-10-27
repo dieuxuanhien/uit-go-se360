@@ -12,9 +12,6 @@ on:
       - 'packages/**'
       - 'infrastructure/**'
       - '.github/workflows/cd-deploy.yml'
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
 
 env:
   NODE_VERSION: '20.x'
