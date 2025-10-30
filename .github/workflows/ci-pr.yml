@@ -96,6 +96,45 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    services:
+      postgres-user:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: uitgo_user
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      postgres-trip:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: uitgo_trip
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -114,7 +153,28 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma clients
+        run: |
+          pnpm --filter user-service prisma generate
+          pnpm --filter trip-service prisma generate
+
+      - name: Run migrations for user-service
+        working-directory: services/user-service
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/uitgo_user?schema=public
+        run: npx prisma migrate deploy
+
+      - name: Run migrations for trip-service
+        working-directory: services/trip-service
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5433/uitgo_trip?schema=public
+        run: npx prisma migrate deploy
+
       - name: Run tests with coverage
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/uitgo_user?schema=public
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
         run: pnpm test --coverage --bail
         continue-on-error: false
 

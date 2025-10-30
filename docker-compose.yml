@@ -82,7 +82,7 @@ services:
       - uitgo-network
     volumes:
       - ./services/user-service/src:/app/services/user-service/src:ro
-
+    command: sh -c "npx prisma migrate deploy && node dist/src/main"
   driver-service:
     build:
       context: .
@@ -113,6 +113,32 @@ services:
     volumes:
       - ./services/driver-service/src:/app/services/driver-service/src:ro
 
+  trip-service:
+    build:
+      context: .
+      dockerfile: services/trip-service/Dockerfile
+    container_name: uitgo-trip-service
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      PORT: 3002
+      DATABASE_URL: postgresql://postgres:postgres@postgres-trip:5432/uitgo_trip?schema=public
+    ports:
+      - '3002:3002'
+    depends_on:
+      postgres-trip:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3002/health']
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    networks:
+      - uitgo-network
+    volumes:
+      - ./services/trip-service/src:/app/services/trip-service/src:ro
+    command: sh -c "npx prisma migrate deploy && node dist/main"
   nginx:
     image: nginx:alpine
     container_name: uitgo-api-gateway
@@ -123,7 +149,7 @@ services:
     depends_on:
       - user-service
       - driver-service
-      # - trip-service  # when you add it
+      - trip-service
     networks:
       - uitgo-network
 

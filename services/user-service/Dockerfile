@@ -21,6 +21,9 @@ COPY packages packages
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
+# Build shared packages
+RUN cd packages/shared-types && pnpm build
+
 # Generate Prisma Client
 WORKDIR /app/services/user-service
 RUN pnpm prisma:generate
