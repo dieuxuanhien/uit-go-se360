@@ -11,6 +11,70 @@ Trip Service is a microservice responsible for:
 - Trip-driver matching coordination
 - Trip history and status tracking
 
+## Fare Calculation Logic
+
+The Trip Service includes a reusable fare calculation module that provides consistent fare estimates for passengers.
+
+### Haversine Distance Formula
+
+Distance calculations use the Haversine formula to compute the great-circle distance between two coordinate pairs:
+
+```
+a = sin²(Δlat/2) + cos(lat1) * cos(lat2) * sin²(Δlng/2)
+c = 2 * atan2(√a, √(1−a))
+distance = R * c
+```
+
+Where:
+
+- `R` = 6371 km (Earth radius)
+- `Δlat` = lat2 - lat1 (in radians)
+- `Δlng` = lng2 - lng1 (in radians)
+
+### Pricing Model
+
+Fare calculation follows this formula:
+
+```
+totalFare (cents) = baseFare + (distanceKm * perKmRate)
+```
+
+With the following constraints:
+
+- **Minimum fare:** $5.00 (500 cents) - applied regardless of distance
+- **Maximum fare:** $200.00 (20000 cents) - caps extremely long trips
+
+### Default Pricing
+
+- **Base fare:** $2.50 (250 cents)
+- **Per-kilometer rate:** $1.20 (120 cents)
+- **Minimum fare:** $5.00 (500 cents)
+- **Maximum fare:** $200.00 (20000 cents)
+
+### Example Calculations
+
+- **10 km trip:** $2.50 + (10 × $1.20) = $14.50
+- **Short trip (0.5 km):** Minimum $5.00 applied
+- **Long trip (200 km):** Maximum $200.00 applied
+
+### Configuration
+
+Fare settings are configurable via environment variables:
+
+| Variable             | Description        | Default | Unit  |
+| -------------------- | ------------------ | ------- | ----- |
+| `FARE_BASE_CENTS`    | Base fare amount   | 250     | cents |
+| `FARE_PER_KM_CENTS`  | Per-kilometer rate | 120     | cents |
+| `FARE_MINIMUM_CENTS` | Minimum fare       | 500     | cents |
+| `FARE_MAXIMUM_CENTS` | Maximum fare cap   | 20000   | cents |
+
+### Implementation Notes
+
+- All monetary values are stored as integers (cents) to avoid floating-point precision issues
+- Fares are rounded to whole cents (no fractional cents)
+- Distance calculations use the WGS84 ellipsoid model via Haversine formula
+- Accuracy: ±0.5% compared to geodesic calculations (sufficient for fare estimation)
+
 ## Tech Stack
 
 - **Framework:** NestJS 10.x
@@ -162,20 +226,24 @@ Currently, the service has a minimal schema for health checks. Trip models will 
 ```
 services/trip-service/
 ├── src/
-│   ├── health/              # Health check module
-│   ├── prisma/              # Prisma service and module
-│   ├── config/              # Configuration modules
-│   ├── app.module.ts        # Root application module
-│   └── main.ts              # Application entry point
+│   ├── fare/               # Fare calculation module
+│   │   ├── fare-calculator.service.ts    # Distance and fare logic
+│   │   └── fare.module.ts                # Fare module definition
+│   ├── health/             # Health check module
+│   ├── prisma/             # Prisma service and module
+│   ├── config/             # Configuration modules
+│   ├── app.module.ts       # Root application module
+│   └── main.ts             # Application entry point
 ├── prisma/
-│   ├── schema.prisma        # Database schema
+│   ├── schema.prisma       # Database schema
 │   └── migrations/          # Migration files
 ├── test/
-│   ├── unit/                # Unit tests
-│   └── integration/         # Integration tests (E2E)
-├── Dockerfile               # Docker configuration
-├── package.json             # Dependencies and scripts
-└── README.md                # This file
+│   ├── unit/               # Unit tests
+│   │   └── fare/           # Fare calculation tests
+│   └── integration/        # Integration tests (E2E)
+├── Dockerfile              # Docker configuration
+├── package.json            # Dependencies and scripts
+└── README.md               # This file
 ```
 
 ## Swagger API Documentation

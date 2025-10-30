@@ -1,4 +1,5 @@
 import * as Joi from 'joi';
+import { fareConfigValidationSchema } from './fare.config';
 
 export const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
@@ -9,4 +10,5 @@ export const validationSchema = Joi.object({
   LOG_LEVEL: Joi.string()
     .valid('error', 'warn', 'info', 'debug')
     .default('info'),
+  ...fareConfigValidationSchema,
 });
