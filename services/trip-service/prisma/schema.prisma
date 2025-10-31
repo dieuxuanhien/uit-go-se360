@@ -13,3 +13,49 @@ model PrismaHealthCheck {
 
   @@map("_prisma_health_check")
 }
+
+enum TripStatus {
+  REQUESTED
+  DRIVER_ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Trip {
+  id                   String     @id @default(uuid())
+  passengerId          String     @map("passenger_id")
+  driverId             String?    @map("driver_id")
+  status               TripStatus @default(REQUESTED)
+
+  pickupLatitude       Decimal    @map("pickup_latitude") @db.Decimal(10, 8)
+  pickupLongitude      Decimal    @map("pickup_longitude") @db.Decimal(11, 8)
+  pickupAddress        String     @map("pickup_address")
+
+  destinationLatitude  Decimal    @map("destination_latitude") @db.Decimal(10, 8)
+  destinationLongitude Decimal    @map("destination_longitude") @db.Decimal(11, 8)
+  destinationAddress   String     @map("destination_address")
+
+  estimatedFare        Int        @map("estimated_fare")
+  actualFare           Int?       @map("actual_fare")
+  estimatedDistance    Decimal    @map("estimated_distance") @db.Decimal(10, 2)
+
+  requestedAt          DateTime   @default(now()) @map("requested_at")
+  driverAssignedAt     DateTime?  @map("driver_assigned_at")
+  startedAt            DateTime?  @map("started_at")
+  completedAt          DateTime?  @map("completed_at")
+  cancelledAt          DateTime?  @map("cancelled_at")
+  cancellationReason   String?    @map("cancellation_reason")
+
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+
+  @@index([passengerId])
+  @@index([driverId])
+  @@index([status])
+  @@index([requestedAt])
+  @@index([completedAt])
+  @@index([passengerId, status])
+  @@index([driverId, status])
+  @@map("trips")
+}

@@ -164,6 +164,78 @@ The service will start on port 3002 (or the port specified in your .env file).
     }
     ```
 
+### Trip Management
+
+#### POST /trips
+
+Create a new trip request as a passenger.
+
+**Authentication Required:** Bearer token with PASSENGER role
+
+**Request Body:**
+
+```json
+{
+  "pickupLatitude": 10.762622,
+  "pickupLongitude": 106.660172,
+  "pickupAddress": "District 1, Ho Chi Minh City",
+  "destinationLatitude": 10.823099,
+  "destinationLongitude": 106.629662,
+  "destinationAddress": "Tan Binh District, Ho Chi Minh City"
+}
+```
+
+**Validation Rules:**
+
+- `pickupLatitude`: number, -90 to 90
+- `pickupLongitude`: number, -180 to 180
+- `pickupAddress`: non-empty string, max 500 characters
+- `destinationLatitude`: number, -90 to 90
+- `destinationLongitude`: number, -180 to 180
+- `destinationAddress`: non-empty string, max 500 characters
+
+**Success Response (201 Created):**
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "passengerId": "550e8400-e29b-41d4-a716-446655440000",
+  "driverId": null,
+  "status": "REQUESTED",
+  "pickupLatitude": 10.762622,
+  "pickupLongitude": 106.660172,
+  "pickupAddress": "District 1, Ho Chi Minh City",
+  "destinationLatitude": 10.823099,
+  "destinationLongitude": 106.629662,
+  "destinationAddress": "Tan Binh District, Ho Chi Minh City",
+  "estimatedFare": 1450,
+  "actualFare": null,
+  "estimatedDistance": 8.5,
+  "requestedAt": "2025-10-31T10:30:00Z",
+  "driverAssignedAt": null,
+  "startedAt": null,
+  "completedAt": null,
+  "cancelledAt": null,
+  "cancellationReason": null,
+  "createdAt": "2025-10-31T10:30:00Z",
+  "updatedAt": "2025-10-31T10:30:00Z"
+}
+```
+
+**Error Responses:**
+
+- **400 Bad Request** - Invalid coordinates or missing required fields
+  ```json
+  {
+    "statusCode": 400,
+    "message": ["Latitude must be between -90 and 90"],
+    "error": "Bad Request"
+  }
+  ```
+- **401 Unauthorized** - Missing or invalid authentication token
+- **403 Forbidden** - User is not a PASSENGER (only passengers can create trips)
+- **500 Internal Server Error** - Unexpected server error
+
 ## Testing
 
 ### Run Unit Tests
