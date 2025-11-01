@@ -87,4 +87,56 @@ export class DriverServiceClient {
       );
     }
   }
+
+  async updateDriverStatus(
+    driverId: string,
+    status: 'online' | 'offline' | 'on_trip',
+  ): Promise<void> {
+    const url = `${this.config.driverServiceUrl}/drivers/${driverId}/status`;
+
+    this.logger.log('Updating driver status', { driverId, status, url });
+
+    try {
+      const headers = {
+        Authorization: `Bearer ${this.config.serviceJwtToken || ''}`,
+      };
+
+      await firstValueFrom(
+        this.httpService.put(url, { status }, { headers }).pipe(
+          timeout(this.config.requestTimeoutMs),
+          retry(this.config.maxRetries),
+          catchError((error: AxiosError) => {
+            this.logger.error('Failed to update driver status', {
+              driverId,
+              status,
+              url,
+              error: error.message,
+              statusCode: error.response?.status,
+              data: error.response?.data,
+            });
+            throw new ServiceUnavailableException(
+              `DriverService unavailable: ${error.message}`,
+            );
+          }),
+        ),
+      );
+
+      this.logger.log('Driver status updated successfully', {
+        driverId,
+        status,
+      });
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) {
+        throw error;
+      }
+
+      this.logger.error('Unexpected error updating driver status', {
+        driverId,
+        status,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      throw new ServiceUnavailableException('Failed to update driver status');
+    }
+  }
 }

@@ -1,4 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { TripStatus, NotificationStatus } from '@prisma/client';
 import { DriverNotificationService } from '../../../src/notifications/driver-notification.service';
 import { PrismaService } from '../../../src/prisma/prisma.service';
@@ -18,16 +24,21 @@ describe('DriverNotificationService', () => {
   const mockPrismaService = {
     trip: {
       update: jest.fn(),
+      findUnique: jest.fn(),
     },
     driverNotification: {
       createMany: jest.fn(),
       findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
   };
 
   const mockDriverServiceClient = {
     searchNearbyDrivers: jest.fn(),
+    updateDriverStatus: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -495,6 +506,326 @@ describe('DriverNotificationService', () => {
       const result = await service.getDriverNotifications(driverId);
 
       expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('acceptNotification', () => {
+    const notificationId = 'notif-123';
+    const driverId = 'driver-123';
+    const tripId = 'trip-123';
+
+    it('should accept valid notification and assign trip', async () => {
+      const now = new Date();
+      const fiveSecondsAgo = new Date(now.getTime() - 5000);
+
+      const mockNotification = {
+        id: notificationId,
+        tripId,
+        driverId,
+        status: NotificationStatus.PENDING,
+        notifiedAt: fiveSecondsAgo,
+        trip: {
+          id: tripId,
+          driverId: null,
+          status: TripStatus.FINDING_DRIVER,
+        },
+      };
+
+      const updatedTrip = {
+        id: tripId,
+        driverId,
+        status: TripStatus.DRIVER_ASSIGNED,
+        driverAssignedAt: now,
+      };
+
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(
+        mockNotification,
+      );
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        return await callback({
+          driverNotification: mockPrismaService.driverNotification,
+          trip: mockPrismaService.trip,
+        });
+      });
+      mockPrismaService.trip.update.mockResolvedValue(updatedTrip);
+      mockDriverServiceClient.updateDriverStatus.mockResolvedValue(undefined);
+
+      const result = await service.acceptNotification(notificationId, driverId);
+
+      expect(result.id).toBe(tripId);
+      expect(result.driverId).toBe(driverId);
+      expect(result.status).toBe(TripStatus.DRIVER_ASSIGNED);
+      expect(
+        mockPrismaService.driverNotification.findUnique,
+      ).toHaveBeenCalledWith({
+        where: { id: notificationId },
+        include: { trip: true },
+      });
+      expect(mockPrismaService.driverNotification.update).toHaveBeenCalledWith({
+        where: { id: notificationId },
+        data: {
+          status: NotificationStatus.ACCEPTED,
+          respondedAt: expect.any(Date),
+        },
+      });
+      expect(mockPrismaService.trip.update).toHaveBeenCalledWith({
+        where: { id: tripId },
+        data: {
+          driverId,
+          status: TripStatus.DRIVER_ASSIGNED,
+          driverAssignedAt: expect.any(Date),
+        },
+      });
+      expect(
+        mockPrismaService.driverNotification.updateMany,
+      ).toHaveBeenCalledWith({
+        where: {
+          tripId,
+          id: { not: notificationId },
+          status: NotificationStatus.PENDING,
+        },
+        data: {
+          status: NotificationStatus.EXPIRED,
+        },
+      });
+      expect(mockDriverServiceClient.updateDriverStatus).toHaveBeenCalledWith(
+        driverId,
+        'on_trip',
+      );
+    });
+
+    it('should throw NotFoundException if notification not found', async () => {
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.acceptNotification(notificationId, driverId),
+      ).rejects.toThrow('Notification not found');
+    });
+
+    it('should throw ForbiddenException if notification belongs to different driver', async () => {
+      const mockNotification = {
+        id: notificationId,
+        tripId,
+        driverId: 'different-driver',
+        status: NotificationStatus.PENDING,
+        notifiedAt: new Date(),
+        trip: { id: tripId, driverId: null },
+      };
+
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(
+        mockNotification,
+      );
+
+      await expect(
+        service.acceptNotification(notificationId, driverId),
+      ).rejects.toThrow('Notification does not belong to this driver');
+    });
+
+    it('should throw BadRequestException if notification expired', async () => {
+      const twentySecondsAgo = new Date(Date.now() - 20000);
+
+      const mockNotification = {
+        id: notificationId,
+        tripId,
+        driverId,
+        status: NotificationStatus.PENDING,
+        notifiedAt: twentySecondsAgo,
+        trip: { id: tripId, driverId: null },
+      };
+
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(
+        mockNotification,
+      );
+
+      await expect(
+        service.acceptNotification(notificationId, driverId),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ConflictException if notification already responded', async () => {
+      const mockNotification = {
+        id: notificationId,
+        tripId,
+        driverId,
+        status: NotificationStatus.ACCEPTED,
+        notifiedAt: new Date(),
+        trip: { id: tripId, driverId: null },
+      };
+
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(
+        mockNotification,
+      );
+
+      await expect(
+        service.acceptNotification(notificationId, driverId),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException if trip already assigned', async () => {
+      const mockNotification = {
+        id: notificationId,
+        tripId,
+        driverId,
+        status: NotificationStatus.PENDING,
+        notifiedAt: new Date(),
+        trip: { id: tripId, driverId: 'other-driver' },
+      };
+
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(
+        mockNotification,
+      );
+
+      await expect(
+        service.acceptNotification(notificationId, driverId),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should continue if DriverService update fails', async () => {
+      const now = new Date();
+      const fiveSecondsAgo = new Date(now.getTime() - 5000);
+
+      const mockNotification = {
+        id: notificationId,
+        tripId,
+        driverId,
+        status: NotificationStatus.PENDING,
+        notifiedAt: fiveSecondsAgo,
+        trip: {
+          id: tripId,
+          driverId: null,
+          status: TripStatus.FINDING_DRIVER,
+        },
+      };
+
+      const updatedTrip = {
+        id: tripId,
+        driverId,
+        status: TripStatus.DRIVER_ASSIGNED,
+        driverAssignedAt: now,
+      };
+
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(
+        mockNotification,
+      );
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        return await callback({
+          driverNotification: mockPrismaService.driverNotification,
+          trip: mockPrismaService.trip,
+        });
+      });
+      mockPrismaService.trip.update.mockResolvedValue(updatedTrip);
+      mockDriverServiceClient.updateDriverStatus.mockRejectedValue(
+        new Error('DriverService error'),
+      );
+
+      const result = await service.acceptNotification(notificationId, driverId);
+
+      expect(result.id).toBe(tripId);
+      expect(mockDriverServiceClient.updateDriverStatus).toHaveBeenCalledWith(
+        driverId,
+        'on_trip',
+      );
+    });
+  });
+
+  describe('declineNotification', () => {
+    const notificationId = 'notif-123';
+    const driverId = 'driver-123';
+    const tripId = 'trip-123';
+
+    it('should decline valid notification', async () => {
+      const fiveSecondsAgo = new Date(Date.now() - 5000);
+
+      const mockNotification = {
+        id: notificationId,
+        tripId,
+        driverId,
+        status: NotificationStatus.PENDING,
+        notifiedAt: fiveSecondsAgo,
+      };
+
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(
+        mockNotification,
+      );
+
+      await service.declineNotification(notificationId, driverId);
+
+      expect(
+        mockPrismaService.driverNotification.findUnique,
+      ).toHaveBeenCalledWith({
+        where: { id: notificationId },
+      });
+      expect(mockPrismaService.driverNotification.update).toHaveBeenCalledWith({
+        where: { id: notificationId },
+        data: {
+          status: NotificationStatus.DECLINED,
+          respondedAt: expect.any(Date),
+        },
+      });
+    });
+
+    it('should throw NotFoundException if notification not found', async () => {
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.declineNotification(notificationId, driverId),
+      ).rejects.toThrow('Notification not found');
+    });
+
+    it('should throw ForbiddenException if notification belongs to different driver', async () => {
+      const mockNotification = {
+        id: notificationId,
+        tripId,
+        driverId: 'different-driver',
+        status: NotificationStatus.PENDING,
+        notifiedAt: new Date(),
+      };
+
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(
+        mockNotification,
+      );
+
+      await expect(
+        service.declineNotification(notificationId, driverId),
+      ).rejects.toThrow('Notification does not belong to this driver');
+    });
+
+    it('should throw BadRequestException if notification expired', async () => {
+      const twentySecondsAgo = new Date(Date.now() - 20000);
+
+      const mockNotification = {
+        id: notificationId,
+        tripId,
+        driverId,
+        status: NotificationStatus.PENDING,
+        notifiedAt: twentySecondsAgo,
+      };
+
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(
+        mockNotification,
+      );
+
+      await expect(
+        service.declineNotification(notificationId, driverId),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ConflictException if notification already responded', async () => {
+      const mockNotification = {
+        id: notificationId,
+        tripId,
+        driverId,
+        status: NotificationStatus.DECLINED,
+        notifiedAt: new Date(),
+      };
+
+      mockPrismaService.driverNotification.findUnique.mockResolvedValue(
+        mockNotification,
+      );
+
+      await expect(
+        service.declineNotification(notificationId, driverId),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });

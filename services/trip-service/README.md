@@ -291,6 +291,120 @@ curl -X GET "http://localhost:3002/notifications" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
+#### POST /notifications/{notification_id}/accept
+
+Accept a trip notification as a driver.
+
+**Authentication Required:** Bearer token with DRIVER role
+
+**Path Parameters:**
+
+- `notification_id`: UUID - Notification identifier
+
+**Request Body:** None
+
+**Success Response (200 OK):**
+
+```json
+{
+  "id": "trip-uuid",
+  "passengerId": "passenger-uuid",
+  "driverId": "driver-uuid",
+  "status": "DRIVER_ASSIGNED",
+  "pickupLatitude": 10.762622,
+  "pickupLongitude": 106.660172,
+  "pickupAddress": "District 1, Ho Chi Minh City",
+  "destinationLatitude": 10.823099,
+  "destinationLongitude": 106.629662,
+  "destinationAddress": "Tan Binh District, Ho Chi Minh City",
+  "estimatedFare": 2500,
+  "requestedAt": "2025-11-01T10:30:00Z",
+  "driverAssignedAt": "2025-11-01T10:31:15Z"
+}
+```
+
+**Error Responses:**
+
+- **400 Bad Request** - Notification expired (> 15 seconds old)
+  ```json
+  {
+    "error": {
+      "code": "NOTIFICATION_EXPIRED",
+      "message": "Notification has expired (older than 15 seconds)",
+      "timestamp": "2025-11-01T10:31:20Z"
+    }
+  }
+  ```
+- **401 Unauthorized** - Missing or invalid JWT token
+- **403 Forbidden** - User is not a driver OR notification belongs to different driver
+- **404 Not Found** - Notification does not exist
+- **409 Conflict** - Notification already responded to OR trip already assigned
+  ```json
+  {
+    "error": {
+      "code": "TRIP_ALREADY_ASSIGNED",
+      "message": "This trip has already been accepted by another driver",
+      "timestamp": "2025-11-01T10:31:20Z"
+    }
+  }
+  ```
+
+**Notes:**
+
+- Notifications expire after 15 seconds (DRIVER_NOTIFICATION_TIMEOUT_SECONDS)
+- Accepting a notification assigns the trip to the driver and expires all other pending notifications for the same trip
+- Driver status is updated to 'on_trip' via DriverService API call
+- All operations are performed atomically to prevent race conditions
+
+**Example curl command:**
+
+```bash
+curl -X POST "http://localhost:3002/notifications/123e4567-e89b-12d3-a456-426614174000/accept" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+#### POST /notifications/{notification_id}/decline
+
+Decline a trip notification as a driver.
+
+**Authentication Required:** Bearer token with DRIVER role
+
+**Path Parameters:**
+
+- `notification_id`: UUID - Notification identifier
+
+**Request Body:** None
+
+**Success Response (200 OK):**
+
+```json
+{
+  "message": "Notification declined successfully",
+  "notificationId": "notification-uuid",
+  "status": "DECLINED"
+}
+```
+
+**Error Responses:**
+
+- **400 Bad Request** - Notification expired (> 15 seconds old)
+- **401 Unauthorized** - Missing or invalid JWT token
+- **403 Forbidden** - User is not a driver OR notification belongs to different driver
+- **404 Not Found** - Notification does not exist
+- **409 Conflict** - Notification already responded to
+
+**Notes:**
+
+- Notifications expire after 15 seconds (DRIVER_NOTIFICATION_TIMEOUT_SECONDS)
+- Declining a notification only updates the notification status; the trip remains available for other drivers
+
+**Example curl command:**
+
+```bash
+curl -X POST "http://localhost:3002/notifications/123e4567-e89b-12d3-a456-426614174000/decline" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
 ## Testing
 
 ### Run Unit Tests

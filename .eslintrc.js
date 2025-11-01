@@ -30,6 +30,7 @@ module.exports = {
       files: ['*.spec.ts', '*.test.ts', '**/*.e2e-spec.ts'],
       rules: {
         '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-unused-vars': 'off',
         'no-console': 'off',
       },
     },

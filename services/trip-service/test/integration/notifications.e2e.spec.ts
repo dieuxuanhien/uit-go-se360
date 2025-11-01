@@ -224,7 +224,7 @@ describe('Notifications (e2e)', () => {
         .set('Authorization', `Bearer ${mockPassengerJwt()}`)
         .expect(403);
 
-      expect(response.body.message).toBe('Forbidden resource');
+      expect(response.body.message).toBe('Insufficient permissions');
     });
 
     it('should only return notifications for the authenticated driver', async () => {
