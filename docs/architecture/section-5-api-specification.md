@@ -14,10 +14,9 @@ info:
     This specification covers all three core services: UserService, TripService, and DriverService.
 
     **Base URLs:**
-    - UserService: https://api.uitgo.example.com/users
-    - TripService: https://api.uitgo.example.com/trips
-    - DriverService: https://api.uitgo.example.com/drivers
-
+    - UserService: http://localhost:3001/
+    - TripService: http://localhost:3002/
+    - DriverService: http://localhost:3003/
     **Authentication:**
     All protected endpoints require a JWT Bearer token in the Authorization header.
 
@@ -211,7 +210,29 @@ components:
     # Trip Schemas
     TripStatus:
       type: string
-      enum: [REQUESTED, DRIVER_ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED]
+      enum:
+        [
+          REQUESTED,
+          FINDING_DRIVER,
+          NO_DRIVERS_AVAILABLE,
+          DRIVER_ASSIGNED,
+          EN_ROUTE_TO_PICKUP,
+          ARRIVED_AT_PICKUP,
+          IN_PROGRESS,
+          COMPLETED,
+          CANCELLED,
+        ]
+      description: |
+        Trip status progression:
+        - REQUESTED: Passenger created trip request
+        - FINDING_DRIVER: System searching for available drivers
+        - NO_DRIVERS_AVAILABLE: No drivers found (terminal state, requires new trip)
+        - DRIVER_ASSIGNED: Driver accepted trip request
+        - EN_ROUTE_TO_PICKUP: Driver traveling to pickup location
+        - ARRIVED_AT_PICKUP: Driver arrived at pickup, waiting for passenger
+        - IN_PROGRESS: Passenger picked up, en route to destination
+        - COMPLETED: Trip successfully finished
+        - CANCELLED: Trip cancelled by passenger or driver
 
     Trip:
       type: object
@@ -817,6 +838,74 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Trip'
+
+  /trips/{tripId}/start-en-route:
+    post:
+      tags: [TripService]
+      summary: Driver starts en route to pickup location
+      operationId: startEnRoute
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Trip status updated to EN_ROUTE_TO_PICKUP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '400':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not the assigned driver
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /trips/{tripId}/arrive-pickup:
+    post:
+      tags: [TripService]
+      summary: Driver marks arrival at pickup location
+      operationId: arriveAtPickup
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Trip status updated to ARRIVED_AT_PICKUP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '400':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not the assigned driver
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /trips/{tripId}/rating:
     post:

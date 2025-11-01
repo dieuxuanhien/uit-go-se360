@@ -88,6 +88,7 @@ describe('TripsService', () => {
     const mockFareCalculator = {
       calculateDistance: jest.fn(),
       calculateEstimatedFare: jest.fn(),
+      calculateActualFare: jest.fn(),
     };
 
     const mockDriverNotificationService = {
@@ -865,6 +866,229 @@ describe('TripsService', () => {
         driverId,
       );
       expect(driverServiceClient.getDriverLocation).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('completeTrip', () => {
+    const tripId = 'trip-123';
+    const driverId = 'driver-789';
+    const completedAt = new Date();
+
+    const mockPassenger = {
+      id: 'passenger-456',
+      email: 'passenger@example.com',
+      role: UserRole.PASSENGER,
+      firstName: 'John',
+      lastName: 'Doe',
+      phoneNumber: '+84901234567',
+    };
+
+    const mockDriver = {
+      id: 'driver-789',
+      email: 'driver@example.com',
+      role: UserRole.DRIVER,
+      firstName: 'Jane',
+      lastName: 'Smith',
+      phoneNumber: '+84909876543',
+    };
+
+    const mockInProgressTrip = {
+      id: 'trip-123',
+      passengerId: 'passenger-456',
+      driverId: driverId,
+      status: TripStatus.IN_PROGRESS,
+      pickupLatitude: 10.762622,
+      pickupLongitude: 106.660172,
+      pickupAddress: 'District 1, Ho Chi Minh City',
+      destinationLatitude: 10.823099,
+      destinationLongitude: 106.629662,
+      destinationAddress: 'Tan Binh District, Ho Chi Minh City',
+      estimatedFare: 1450,
+      actualFare: null,
+      estimatedDistance: 8.5,
+      requestedAt: new Date(),
+      driverAssignedAt: new Date(),
+      startedAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+      completedAt: null,
+      cancelledAt: null,
+      cancellationReason: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const mockCompletedTrip = {
+      ...mockInProgressTrip,
+      status: TripStatus.COMPLETED,
+      completedAt,
+      actualFare: 1450,
+    };
+
+    const mockCompletedTripWithUsers = {
+      ...mockCompletedTrip,
+      passenger: mockPassenger,
+      driver: mockDriver,
+    };
+
+    it('should successfully complete trip by assigned driver and return completed trip', async () => {
+      fareCalculator.calculateActualFare.mockReturnValue(1450);
+      repository.findById.mockResolvedValue(mockInProgressTrip as any);
+      repository.updateStatus.mockResolvedValue(mockCompletedTrip as any);
+      repository.findByIdWithUsers.mockResolvedValue(
+        mockCompletedTripWithUsers as any,
+      );
+
+      const result = await service.completeTrip(tripId, driverId);
+
+      expect(result.status).toBe(TripStatus.COMPLETED);
+      expect(result.completedAt).toEqual(completedAt);
+      expect(result.actualFare).toBe(1450);
+      expect(result.id).toBe(tripId);
+      expect(result.driverId).toBe(driverId);
+      expect(repository.findById).toHaveBeenCalledWith(tripId);
+      expect(fareCalculator.calculateActualFare).toHaveBeenCalledWith(
+        mockInProgressTrip,
+      );
+      expect(repository.updateStatus).toHaveBeenCalledWith(
+        tripId,
+        TripStatus.COMPLETED,
+        { completedAt: expect.any(Date) },
+        { actualFare: 1450 },
+      );
+      expect(repository.findByIdWithUsers).toHaveBeenCalledWith(tripId);
+    });
+    it('should throw ForbiddenException if non-assigned driver attempts completion', async () => {
+      const tripWithDifferentDriver = {
+        ...mockInProgressTrip,
+        driverId: 'different-driver',
+      };
+      repository.findById.mockResolvedValue(tripWithDifferentDriver as any);
+
+      await expect(service.completeTrip(tripId, driverId)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if trip status is REQUESTED', async () => {
+      const requestedTrip = {
+        ...mockTrip,
+        status: TripStatus.REQUESTED,
+        driverId,
+      };
+      repository.findById.mockResolvedValue(requestedTrip as any);
+
+      await expect(service.completeTrip(tripId, driverId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if trip status is DRIVER_ASSIGNED', async () => {
+      const assignedTrip = {
+        ...mockTrip,
+        status: TripStatus.DRIVER_ASSIGNED,
+        driverId,
+      };
+      repository.findById.mockResolvedValue(assignedTrip as any);
+
+      await expect(service.completeTrip(tripId, driverId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if trip status is COMPLETED', async () => {
+      const completedTrip = {
+        ...mockTrip,
+        status: TripStatus.COMPLETED,
+        driverId,
+      };
+      repository.findById.mockResolvedValue(completedTrip as any);
+
+      await expect(service.completeTrip(tripId, driverId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException if trip does not exist', async () => {
+      repository.findById.mockResolvedValue(null);
+
+      await expect(service.completeTrip(tripId, driverId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should set completedAt timestamp correctly', async () => {
+      fareCalculator.calculateActualFare.mockReturnValue(1450);
+      repository.findById.mockResolvedValue(mockInProgressTrip as any);
+      repository.updateStatus.mockResolvedValue(mockCompletedTrip as any);
+      repository.findByIdWithUsers.mockResolvedValue(
+        mockCompletedTripWithUsers as any,
+      );
+
+      await service.completeTrip(tripId, driverId);
+
+      expect(repository.updateStatus).toHaveBeenCalledWith(
+        tripId,
+        TripStatus.COMPLETED,
+        { completedAt: expect.any(Date) },
+        { actualFare: 1450 },
+      );
+    });
+
+    it('should set actualFare equal to estimatedFare for MVP', async () => {
+      fareCalculator.calculateActualFare.mockReturnValue(1450);
+      repository.findById.mockResolvedValue(mockInProgressTrip as any);
+      repository.updateStatus.mockResolvedValue(mockCompletedTrip as any);
+      repository.findByIdWithUsers.mockResolvedValue(
+        mockCompletedTripWithUsers as any,
+      );
+
+      await service.completeTrip(tripId, driverId);
+
+      expect(fareCalculator.calculateActualFare).toHaveBeenCalledWith(
+        mockInProgressTrip,
+      );
+      expect(repository.updateStatus).toHaveBeenCalledWith(
+        tripId,
+        TripStatus.COMPLETED,
+        { completedAt: expect.any(Date) },
+        { actualFare: 1450 },
+      );
+    });
+
+    it('should return TripDto with all required fields', async () => {
+      fareCalculator.calculateActualFare.mockReturnValue(1450);
+      repository.findById.mockResolvedValue(mockInProgressTrip as any);
+      repository.updateStatus.mockResolvedValue(mockCompletedTrip as any);
+      repository.findByIdWithUsers.mockResolvedValue(
+        mockCompletedTripWithUsers as any,
+      );
+
+      const result = await service.completeTrip(tripId, driverId);
+      expect(result).toHaveProperty('id');
+      expect(result).toHaveProperty('passengerId');
+      expect(result).toHaveProperty('driverId');
+      expect(result).toHaveProperty('status');
+      expect(result).toHaveProperty('pickupLatitude');
+      expect(result).toHaveProperty('pickupLongitude');
+      expect(result).toHaveProperty('pickupAddress');
+      expect(result).toHaveProperty('destinationLatitude');
+      expect(result).toHaveProperty('destinationLongitude');
+      expect(result).toHaveProperty('destinationAddress');
+      expect(result).toHaveProperty('estimatedFare');
+      expect(result).toHaveProperty('actualFare');
+      expect(result).toHaveProperty('estimatedDistance');
+      expect(result).toHaveProperty('requestedAt');
+      expect(result).toHaveProperty('driverAssignedAt');
+      expect(result).toHaveProperty('startedAt');
+      expect(result).toHaveProperty('completedAt');
+      expect(result).toHaveProperty('cancelledAt');
+      expect(result).toHaveProperty('cancellationReason');
+      expect(result).toHaveProperty('passenger');
+      expect(result).toHaveProperty('driver');
     });
   });
 });

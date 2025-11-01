@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { TripStatus } from '@prisma/client';
-import * as nock from 'nock';
+import nock from 'nock';
 
 describe('Trips (e2e)', () => {
   let app: INestApplication;
@@ -1120,6 +1120,235 @@ describe('Trips (e2e)', () => {
         .get(`/trips/${inactiveTrip.id}/current-location`)
         .set('Authorization', `Bearer ${passengerToken}`)
         .expect(400);
+    });
+  });
+
+  describe('POST /trips/:id/complete', () => {
+    let testPassenger, testDriver, testTripInProgress;
+
+    beforeEach(async () => {
+      // Create test users
+      testPassenger = await prisma.user.create({
+        data: {
+          id: 'passenger-complete-123',
+          email: 'passenger-complete@test.com',
+          passwordHash: 'hash',
+          role: 'PASSENGER',
+          firstName: 'Test',
+          lastName: 'Passenger',
+          phoneNumber: '+1234567890',
+        },
+      });
+
+      testDriver = await prisma.user.create({
+        data: {
+          id: 'driver-complete-456',
+          email: 'driver-complete@test.com',
+          passwordHash: 'hash',
+          role: 'DRIVER',
+          firstName: 'Test',
+          lastName: 'Driver',
+          phoneNumber: '+0987654321',
+        },
+      });
+
+      // Create test trip with IN_PROGRESS status
+      testTripInProgress = await prisma.trip.create({
+        data: {
+          passengerId: testPassenger.id,
+          driverId: testDriver.id,
+          pickupLatitude: 10.762622,
+          pickupLongitude: 106.660172,
+          pickupAddress: 'District 1, Ho Chi Minh City',
+          destinationLatitude: 10.823099,
+          destinationLongitude: 106.629662,
+          destinationAddress: 'Tan Binh District, Ho Chi Minh City',
+          estimatedFare: 2500,
+          estimatedDistance: 8.5,
+          status: TripStatus.IN_PROGRESS,
+          startedAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+        },
+      });
+    });
+
+    it('should return 200 and update trip status to COMPLETED for assigned driver', async () => {
+      const driverToken = generateToken(testDriver.id, 'DRIVER');
+
+      const response = await request(app.getHttpServer())
+        .post(`/trips/${testTripInProgress.id}/complete`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .expect(200);
+
+      expect(response.body.status).toBe(TripStatus.COMPLETED);
+      expect(response.body.completedAt).toBeDefined();
+      expect(new Date(response.body.completedAt).getTime()).toBeGreaterThan(0);
+      expect(response.body.actualFare).toBe(2500); // Same as estimated for MVP
+      expect(response.body.id).toBe(testTripInProgress.id);
+      expect(response.body.driverId).toBe(testDriver.id);
+    });
+
+    it('should update database with COMPLETED status, completedAt timestamp, and actualFare', async () => {
+      const driverToken = generateToken(testDriver.id, 'DRIVER');
+
+      await request(app.getHttpServer())
+        .post(`/trips/${testTripInProgress.id}/complete`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .expect(200);
+
+      const updatedTrip = await prisma.trip.findUnique({
+        where: { id: testTripInProgress.id },
+      });
+
+      expect(updatedTrip.status).toBe(TripStatus.COMPLETED);
+      expect(updatedTrip.completedAt).toBeDefined();
+      expect(updatedTrip.completedAt.getTime()).toBeGreaterThan(0);
+      expect(updatedTrip.actualFare).toBe(2500); // Same as estimated for MVP
+    });
+
+    it('should return 403 for different driver attempting to complete trip', async () => {
+      const otherDriverToken = generateToken('other-driver-789', 'DRIVER');
+
+      await request(app.getHttpServer())
+        .post(`/trips/${testTripInProgress.id}/complete`)
+        .set('Authorization', `Bearer ${otherDriverToken}`)
+        .expect(403);
+    });
+
+    it('should return 400 for trip in REQUESTED status', async () => {
+      // Create trip with REQUESTED status
+      const invalidTrip = await prisma.trip.create({
+        data: {
+          passengerId: testPassenger.id,
+          pickupLatitude: 10.762622,
+          pickupLongitude: 106.660172,
+          pickupAddress: 'District 1, Ho Chi Minh City',
+          destinationLatitude: 10.823099,
+          destinationLongitude: 106.629662,
+          destinationAddress: 'Tan Binh District, Ho Chi Minh City',
+          estimatedFare: 2500,
+          estimatedDistance: 8.5,
+          status: TripStatus.REQUESTED,
+        },
+      });
+
+      const driverToken = generateToken(testDriver.id, 'DRIVER');
+
+      await request(app.getHttpServer())
+        .post(`/trips/${invalidTrip.id}/complete`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .expect(400);
+    });
+
+    it('should return 400 for trip in DRIVER_ASSIGNED status', async () => {
+      // Create trip with DRIVER_ASSIGNED status
+      const invalidTrip = await prisma.trip.create({
+        data: {
+          passengerId: testPassenger.id,
+          driverId: testDriver.id,
+          pickupLatitude: 10.762622,
+          pickupLongitude: 106.660172,
+          pickupAddress: 'District 1, Ho Chi Minh City',
+          destinationLatitude: 10.823099,
+          destinationLongitude: 106.629662,
+          destinationAddress: 'Tan Binh District, Ho Chi Minh City',
+          estimatedFare: 2500,
+          estimatedDistance: 8.5,
+          status: TripStatus.DRIVER_ASSIGNED,
+        },
+      });
+
+      const driverToken = generateToken(testDriver.id, 'DRIVER');
+
+      await request(app.getHttpServer())
+        .post(`/trips/${invalidTrip.id}/complete`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .expect(400);
+    });
+
+    it('should return 400 for trip already COMPLETED', async () => {
+      // Create trip with COMPLETED status
+      const invalidTrip = await prisma.trip.create({
+        data: {
+          passengerId: testPassenger.id,
+          driverId: testDriver.id,
+          pickupLatitude: 10.762622,
+          pickupLongitude: 106.660172,
+          pickupAddress: 'District 1, Ho Chi Minh City',
+          destinationLatitude: 10.823099,
+          destinationLongitude: 106.629662,
+          destinationAddress: 'Tan Binh District, Ho Chi Minh City',
+          estimatedFare: 2500,
+          estimatedDistance: 8.5,
+          status: TripStatus.COMPLETED,
+          actualFare: 2500,
+          completedAt: new Date(),
+        },
+      });
+
+      const driverToken = generateToken(testDriver.id, 'DRIVER');
+
+      await request(app.getHttpServer())
+        .post(`/trips/${invalidTrip.id}/complete`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .expect(400);
+    });
+
+    it('should return 404 for non-existent trip', async () => {
+      const driverToken = generateToken(testDriver.id, 'DRIVER');
+
+      await request(app.getHttpServer())
+        .post('/trips/non-existent-id/complete')
+        .set('Authorization', `Bearer ${driverToken}`)
+        .expect(404);
+    });
+
+    it('should return 401 for unauthenticated request', async () => {
+      await request(app.getHttpServer())
+        .post(`/trips/${testTripInProgress.id}/complete`)
+        .expect(401);
+    });
+
+    it('should return response with TripDto structure including actualFare and completedAt', async () => {
+      const driverToken = generateToken(testDriver.id, 'DRIVER');
+
+      const response = await request(app.getHttpServer())
+        .post(`/trips/${testTripInProgress.id}/complete`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('id');
+      expect(response.body).toHaveProperty('passengerId');
+      expect(response.body).toHaveProperty('driverId');
+      expect(response.body).toHaveProperty('status');
+      expect(response.body).toHaveProperty('pickupLatitude');
+      expect(response.body).toHaveProperty('pickupLongitude');
+      expect(response.body).toHaveProperty('pickupAddress');
+      expect(response.body).toHaveProperty('destinationLatitude');
+      expect(response.body).toHaveProperty('destinationLongitude');
+      expect(response.body).toHaveProperty('destinationAddress');
+      expect(response.body).toHaveProperty('estimatedFare');
+      expect(response.body).toHaveProperty('actualFare');
+      expect(response.body).toHaveProperty('estimatedDistance');
+      expect(response.body).toHaveProperty('requestedAt');
+      expect(response.body).toHaveProperty('driverAssignedAt');
+      expect(response.body).toHaveProperty('startedAt');
+      expect(response.body).toHaveProperty('completedAt');
+      expect(response.body).toHaveProperty('cancelledAt');
+      expect(response.body).toHaveProperty('cancellationReason');
+      expect(response.body).toHaveProperty('passenger');
+      expect(response.body).toHaveProperty('driver');
+      expect(response.body.actualFare).toBe(2500);
+      expect(response.body.completedAt).toBeDefined();
+      expect(response.body.status).toBe(TripStatus.COMPLETED);
+    });
+
+    it('should return 403 for passenger attempting to complete trip', async () => {
+      const passengerToken = generateToken(testPassenger.id, 'PASSENGER');
+
+      await request(app.getHttpServer())
+        .post(`/trips/${testTripInProgress.id}/complete`)
+        .set('Authorization', `Bearer ${passengerToken}`)
+        .expect(403);
     });
   });
 });

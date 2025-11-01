@@ -24,3 +24,18 @@ stories
 qa
 .github
 .bmad*
+# Additional exclusions to reduce build context
+*.md
+!README.md
+*.postman_collection.json
+docker-compose*.yml
+nginx.conf
+tsconfig*.json
+!services/*/tsconfig*.json
+!packages/*/tsconfig*.json
+*.lock
+!pnpm-lock.yaml
+package-lock.json
+yarn.lock
+.DS_Store
+Thumbs.db

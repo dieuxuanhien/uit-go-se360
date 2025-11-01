@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { TripsController } from './trips.controller';
 import { TripsService } from './trips.service';
 import { TripsRepository } from './trips.repository';
@@ -8,9 +9,16 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { Reflector } from '@nestjs/core';
 import { DriverServiceClient } from '../integrations/driver-service.client';
 import { HttpModule } from '@nestjs/axios';
+import driverNotificationConfig from '../config/driver-notification.config';
 
 @Module({
-  imports: [FareModule, PrismaModule, NotificationsModule, HttpModule],
+  imports: [
+    ConfigModule.forFeature(driverNotificationConfig),
+    FareModule,
+    PrismaModule,
+    NotificationsModule,
+    HttpModule,
+  ],
   controllers: [TripsController],
   providers: [TripsService, TripsRepository, DriverServiceClient, Reflector],
   exports: [TripsService],

@@ -16,6 +16,7 @@ import { TripDto } from './dto/trip.dto';
 import { UserDto } from './dto/user.dto';
 import { TripLocationDto } from './dto/trip-location.dto';
 import { DriverServiceClient } from '../integrations/driver-service.client';
+import { TripStateMachine } from './trip-state-machine';
 
 @Injectable()
 export class TripsService {
@@ -441,5 +442,58 @@ export class TripsService {
       accuracy: location.accuracy,
       timestamp: location.timestamp,
     };
+  }
+
+  async completeTrip(tripId: string, driverId: string): Promise<TripDto> {
+    // 1. Fetch trip
+    const trip = await this.tripsRepository.findById(tripId);
+    if (!trip) {
+      throw new NotFoundException(`Trip with ID ${tripId} not found`);
+    }
+
+    // 2. Authorization: verify assigned driver
+    if (trip.driverId !== driverId) {
+      throw new ForbiddenException('Only assigned driver can complete trip');
+    }
+
+    // 3. State validation: must be IN_PROGRESS
+    if (!TripStateMachine.canTransitionTo(trip.status, TripStatus.COMPLETED)) {
+      throw new BadRequestException(
+        TripStateMachine.getInvalidTransitionMessage(
+          trip.status,
+          TripStatus.COMPLETED,
+        ),
+      );
+    }
+
+    // 4. Calculate actual fare (MVP: same as estimated)
+    const actualFare = this.fareCalculator.calculateActualFare(trip);
+
+    // 5. Set completion timestamp
+    const completedAt = new Date();
+
+    // 6. Update trip in database
+    const updatedTrip = await this.tripsRepository.updateStatus(
+      tripId,
+      TripStatus.COMPLETED,
+      { completedAt },
+      { actualFare },
+    );
+    console.log('Trip updated to COMPLETED:', updatedTrip);
+    // 7. Log completion event
+    this.logger.log('Trip completed', {
+      tripId,
+      driverId,
+      actualFare,
+      tripDuration: completedAt.getTime() - (trip.startedAt?.getTime() || 0),
+    });
+
+    // 8. Return DTO
+    const tripWithUsers = await this.tripsRepository.findByIdWithUsers(tripId);
+    if (!tripWithUsers) {
+      throw new InternalServerErrorException('Failed to fetch completed trip');
+    }
+
+    return this.mapToTripDto(tripWithUsers);
   }
 }

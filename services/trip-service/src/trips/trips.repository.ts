@@ -95,6 +95,10 @@ export class TripsRepository {
       startedAt: Date;
       arrivedAt: Date;
       pickedUpAt: Date;
+      completedAt: Date;
+    }>,
+    additionalData?: Partial<{
+      actualFare: number;
     }>,
   ): Promise<Trip> {
     try {
@@ -109,6 +113,12 @@ export class TripsRepository {
       }
       if (timestamps?.pickedUpAt) {
         updateData.pickedUpAt = timestamps.pickedUpAt;
+      }
+      if (timestamps?.completedAt) {
+        updateData.completedAt = timestamps.completedAt;
+      }
+      if (additionalData?.actualFare !== undefined) {
+        updateData.actualFare = additionalData.actualFare;
       }
       return await this.prisma.trip.update({
         where: { id: tripId },

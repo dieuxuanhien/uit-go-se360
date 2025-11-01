@@ -1,5 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
+import { Trip } from '@prisma/client';
 import fareConfig from '../config/fare.config';
 
 @Injectable()
@@ -60,6 +61,19 @@ export class FareCalculatorService {
 
     // Round to whole cents (no fractional cents)
     return Math.round(totalFare);
+  }
+
+  /**
+   * Calculates the actual fare for a completed trip.
+   * For MVP: returns the estimated fare (no modifications).
+   * Future enhancements can add surge pricing, tolls, wait time charges.
+   * @param trip The completed trip
+   * @returns Actual fare amount in cents (integer)
+   */
+  calculateActualFare(trip: Trip): number {
+    // For MVP, actual fare equals estimated fare
+    // Future: Can add surge pricing, tolls, wait time
+    return trip.estimatedFare;
   }
 
   /**

@@ -216,4 +216,40 @@ export class TripsController {
   ): Promise<TripDto> {
     return this.tripsService.startActiveTrip(id, user.userId);
   }
+
+  @Post(':id/complete')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DRIVER')
+  @ApiOperation({
+    summary: 'Complete trip',
+    description:
+      'Driver marks trip as completed when passenger is dropped off. Calculates final fare and enables rating.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Trip ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Trip completed successfully',
+    type: TripDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid trip status for completion',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing token',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - Not assigned driver' })
+  @ApiResponse({ status: 404, description: 'Trip not found' })
+  async completeTrip(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<TripDto> {
+    return this.tripsService.completeTrip(id, user.userId);
+  }
 }

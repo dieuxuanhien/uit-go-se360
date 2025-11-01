@@ -12,14 +12,15 @@ COPY package.json .
 COPY pnpm-lock.yaml .
 
 # Copy service package.json
-COPY services/trip-service/package.json services/trip-service/
-RUN pnpm install --frozen-lockfile
-COPY services/trip-service/prisma services/trip-service/prisma
+COPY services/trip-service/package.json ./services/trip-service/
+
+COPY services/trip-service/prisma ./services/trip-service/prisma
 # Copy shared packages
-COPY packages packages
+COPY packages ./packages
 
 
 # Install dependencies
+RUN pnpm install --frozen-lockfile
 
 # Build shared packages
 RUN cd packages/shared-types && pnpm build

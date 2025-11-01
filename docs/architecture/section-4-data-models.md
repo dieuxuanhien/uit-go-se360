@@ -203,9 +203,13 @@ export interface NearbyDriver {
 ```typescript
 export enum TripStatus {
   REQUESTED = 'REQUESTED', // Passenger created request
-  DRIVER_ASSIGNED = 'DRIVER_ASSIGNED', // Driver accepted
-  IN_PROGRESS = 'IN_PROGRESS', // Driver picked up passenger
-  COMPLETED = 'COMPLETED', // Trip finished successfully
+  FINDING_DRIVER = 'FINDING_DRIVER', // System searching for available drivers
+  NO_DRIVERS_AVAILABLE = 'NO_DRIVERS_AVAILABLE', // No drivers found within search radius
+  DRIVER_ASSIGNED = 'DRIVER_ASSIGNED', // Driver accepted trip request
+  EN_ROUTE_TO_PICKUP = 'EN_ROUTE_TO_PICKUP', // Driver traveling to pickup location
+  ARRIVED_AT_PICKUP = 'ARRIVED_AT_PICKUP', // Driver arrived at pickup, waiting for passenger
+  IN_PROGRESS = 'IN_PROGRESS', // Passenger picked up, trip in progress
+  COMPLETED = 'COMPLETED', // Trip finished successfully at destination
   CANCELLED = 'CANCELLED', // Trip cancelled by passenger or driver
 }
 
@@ -244,13 +248,46 @@ export interface TripDTO extends Trip {
 - One Trip → One User (DRIVER) - via driverId (nullable)
 - One Trip → One Rating (optional, after completion)
 
+**Extended Status Rationale:**
+
+The TripStatus enum includes intermediate states to provide:
+
+1. **Enhanced UX:** Passengers see detailed trip progress ("Driver is 5 minutes away" vs generic "Trip assigned")
+2. **Business Intelligence:** Track metrics like time-to-assignment, driver arrival times, pickup wait times
+3. **Error Handling:** Distinguish between "no drivers available" and "driver assigned but cancelled"
+4. **Real-time Updates:** Enable granular status notifications to users
+
 **State Machine Transitions:**
 
 ```
-REQUESTED → DRIVER_ASSIGNED → IN_PROGRESS → COMPLETED
-    ↓              ↓              ↓
-CANCELLED ← ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+REQUESTED → FINDING_DRIVER → DRIVER_ASSIGNED → EN_ROUTE_TO_PICKUP → ARRIVED_AT_PICKUP → IN_PROGRESS → COMPLETED
+         ↓                  ↓                 ↓                   ↓                      ↓              ↓
+         └─────────── CANCELLED ←──────────────┴────────────────────┴──────────────────┴──────────────┘
+                           ↑
+                           |
+        NO_DRIVERS_AVAILABLE (terminal state from FINDING_DRIVER)
 ```
+
+**Valid Transitions:**
+
+- `REQUESTED → FINDING_DRIVER` (automatic, when system begins driver search)
+- `FINDING_DRIVER → DRIVER_ASSIGNED` (when driver accepts)
+- `FINDING_DRIVER → NO_DRIVERS_AVAILABLE` (when no drivers found)
+- `FINDING_DRIVER → CANCELLED` (passenger cancels during search)
+- `DRIVER_ASSIGNED → EN_ROUTE_TO_PICKUP` (driver begins navigation to pickup)
+- `DRIVER_ASSIGNED → CANCELLED` (passenger or driver cancels)
+- `EN_ROUTE_TO_PICKUP → ARRIVED_AT_PICKUP` (driver reaches pickup location)
+- `EN_ROUTE_TO_PICKUP → CANCELLED` (passenger or driver cancels)
+- `ARRIVED_AT_PICKUP → IN_PROGRESS` (passenger enters vehicle)
+- `ARRIVED_AT_PICKUP → CANCELLED` (passenger doesn't show up)
+- `IN_PROGRESS → COMPLETED` (trip reaches destination)
+- `IN_PROGRESS → CANCELLED` (emergency cancellation)
+
+**Implementation Notes:**
+
+- All status transitions must be validated in business logic layer
+- Invalid transitions should throw `InvalidTripTransitionException`
+- Timestamp fields correspond to status changes: `driverAssignedAt`, `startedAt`, `arrivedAt`, `pickedUpAt`, `completedAt`, `cancelledAt`
 
 ---
 
