@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RatingDto {
   @ApiProperty()
@@ -7,11 +7,11 @@ export class RatingDto {
   @ApiProperty()
   tripId!: string;
 
-  @ApiProperty()
-  passengerId!: string;
+  @ApiPropertyOptional()
+  passengerId?: string;
 
-  @ApiProperty()
-  driverId!: string;
+  @ApiPropertyOptional()
+  driverId?: string;
 
   @ApiProperty()
   stars!: number;

@@ -222,6 +222,79 @@ curl -X POST \
   }'
 ```
 
+#### GET /trips/{tripId}/rating
+
+Retrieve a rating for a specific trip. Passengers can view ratings they submitted; drivers can view ratings for their trips. Requires JWT authentication.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Path Parameters:**
+
+- `tripId`: UUID of the trip
+
+**Response:** `200 OK`
+
+**Passenger View (full rating details):**
+
+```json
+{
+  "id": "rating-uuid",
+  "tripId": "trip-uuid",
+  "passengerId": "passenger-uuid",
+  "driverId": "driver-uuid",
+  "stars": 5,
+  "comment": "Excellent driver! Very friendly and safe driving.",
+  "createdAt": "2025-11-01T10:40:00.000Z"
+}
+```
+
+**Driver View (passengerId excluded for privacy):**
+
+```json
+{
+  "id": "rating-uuid",
+  "tripId": "trip-uuid",
+  "driverId": "driver-uuid",
+  "stars": 5,
+  "comment": "Excellent driver! Very friendly and safe driving.",
+  "createdAt": "2025-11-01T10:40:00.000Z"
+}
+```
+
+**Error Responses:**
+
+- `401 Unauthorized` - Missing or invalid JWT token
+- `403 Forbidden` - User is not authorized (not trip participant)
+- `404 Not Found` - Trip does not exist or no rating exists for the trip
+
+**Authorization Rules:**
+
+- Passengers can view ratings they submitted (trip.passengerId === userId)
+- Drivers can view ratings for their trips (trip.driverId === userId)
+- Other users receive 403 Forbidden
+
+**Example curl commands:**
+
+**Passenger viewing their rating:**
+
+```bash
+curl -X GET \
+  http://localhost:3000/trips/123e4567-e89b-12d3-a456-426614174000/rating \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**Driver viewing rating for their trip:**
+
+```bash
+curl -X GET \
+  http://localhost:3000/trips/123e4567-e89b-12d3-a456-426614174000/rating \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
 ### Driver Approval Status
 
 The `approvalStatus` field indicates the current state of a driver's profile:

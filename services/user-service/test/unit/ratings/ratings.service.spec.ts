@@ -5,7 +5,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { TripStatus } from '@uit-go/shared-types';
+import { TripStatus, UserRole } from '@uit-go/shared-types';
 import { RatingsService } from '../../../src/ratings/ratings.service';
 import { RatingsRepository } from '../../../src/ratings/ratings.repository';
 import { TripServiceClient } from '../../../src/integrations/trip-service.client';
@@ -177,6 +177,117 @@ describe('RatingsService', () => {
       await expect(
         service.submitRating('trip-123', 'passenger-123', dto),
       ).rejects.toThrow('Trip trip-123 has already been rated');
+    });
+  });
+
+  describe('getRatingByTripId', () => {
+    it('should return full RatingDto for passenger viewing their own rating', async () => {
+      // Arrange
+      tripServiceClient.getTripById.mockResolvedValue(mockTrip);
+      ratingsRepository.findByTripId.mockResolvedValue(mockRating);
+
+      // Act
+      const result = await service.getRatingByTripId(
+        'trip-123',
+        'passenger-123',
+        UserRole.PASSENGER,
+      );
+
+      // Assert
+      expect(result).toEqual({
+        id: 'rating-123',
+        tripId: 'trip-123',
+        passengerId: 'passenger-123',
+        driverId: 'driver-456',
+        stars: 5,
+        comment: 'Great driver!',
+        createdAt: mockRating.createdAt,
+      });
+      expect(tripServiceClient.getTripById).toHaveBeenCalledWith('trip-123');
+      expect(ratingsRepository.findByTripId).toHaveBeenCalledWith('trip-123');
+    });
+
+    it('should return RatingDto without passengerId for driver viewing their trip rating', async () => {
+      // Arrange
+      tripServiceClient.getTripById.mockResolvedValue(mockTrip);
+      ratingsRepository.findByTripId.mockResolvedValue(mockRating);
+
+      // Act
+      const result = await service.getRatingByTripId(
+        'trip-123',
+        'driver-456',
+        UserRole.DRIVER,
+      );
+
+      // Assert
+      expect(result).toEqual({
+        id: 'rating-123',
+        tripId: 'trip-123',
+        driverId: 'driver-456',
+        stars: 5,
+        comment: 'Great driver!',
+        createdAt: mockRating.createdAt,
+      });
+      expect(result.passengerId).toBeUndefined();
+      expect(tripServiceClient.getTripById).toHaveBeenCalledWith('trip-123');
+      expect(ratingsRepository.findByTripId).toHaveBeenCalledWith('trip-123');
+    });
+
+    it("should throw ForbiddenException if passenger attempts to view another passenger's rating", async () => {
+      // Arrange
+      const wrongTrip = { ...mockTrip, passengerId: 'different-passenger' };
+      tripServiceClient.getTripById.mockResolvedValue(wrongTrip);
+
+      // Act & Assert
+      await expect(
+        service.getRatingByTripId(
+          'trip-123',
+          'passenger-123',
+          UserRole.PASSENGER,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("should throw ForbiddenException if driver attempts to view another driver's rating", async () => {
+      // Arrange
+      const wrongTrip = { ...mockTrip, driverId: 'different-driver' };
+      tripServiceClient.getTripById.mockResolvedValue(wrongTrip);
+
+      // Act & Assert
+      await expect(
+        service.getRatingByTripId('trip-123', 'driver-456', UserRole.DRIVER),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw NotFoundException if trip does not exist', async () => {
+      // Arrange
+      tripServiceClient.getTripById.mockRejectedValue(
+        new NotFoundException('Trip not found'),
+      );
+
+      // Act & Assert
+      await expect(
+        service.getRatingByTripId(
+          'trip-123',
+          'passenger-123',
+          UserRole.PASSENGER,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException if no rating exists for trip', async () => {
+      // Arrange
+      tripServiceClient.getTripById.mockResolvedValue(mockTrip);
+      ratingsRepository.findByTripId.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(
+        service.getRatingByTripId(
+          'trip-123',
+          'passenger-123',
+          UserRole.PASSENGER,
+        ),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

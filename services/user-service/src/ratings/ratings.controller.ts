@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Param,
   Body,
   UseGuards,
@@ -70,6 +71,43 @@ export class RatingsController {
       tripId,
       user.userId,
       createRatingDto,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Get trip rating',
+    description:
+      'Retrieve rating for a specific trip. Passengers can view ratings they submitted; drivers can view ratings for their trips.',
+  })
+  @ApiParam({
+    name: 'tripId',
+    description: 'Trip ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Rating retrieved successfully',
+    type: RatingDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing token',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - Not trip participant' })
+  @ApiResponse({
+    status: 404,
+    description: 'Trip not found or no rating exists',
+  })
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async getRating(
+    @Param('tripId') tripId: string,
+    @CurrentUser() user: any,
+  ): Promise<RatingDto> {
+    return this.ratingsService.getRatingByTripId(
+      tripId,
+      user.userId,
+      user.role,
     );
   }
 }
