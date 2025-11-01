@@ -80,6 +80,7 @@ model Trip {
   driverAssignedAt   DateTime? @map("driver_assigned_at")
   startedAt          DateTime? @map("started_at")
   arrivedAt          DateTime? @map("arrived_at")
+  pickedUpAt         DateTime? @map("picked_up_at")
   completedAt        DateTime? @map("completed_at")
   cancelledAt        DateTime? @map("cancelled_at")
   cancellationReason String?   @map("cancellation_reason")

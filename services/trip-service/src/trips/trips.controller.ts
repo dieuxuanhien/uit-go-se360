@@ -150,4 +150,33 @@ export class TripsController {
   ): Promise<TripDto> {
     return this.tripsService.arriveAtPickup(id, user.userId);
   }
+
+  @Post(':id/start-trip')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('DRIVER')
+  @ApiOperation({ summary: 'Driver starts trip after passenger pickup' })
+  @ApiParam({
+    name: 'id',
+    description: 'Trip ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Trip started successfully',
+    type: TripDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid trip status transition' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing token',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - Wrong driver' })
+  @ApiResponse({ status: 404, description: 'Trip not found' })
+  async startActiveTrip(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<TripDto> {
+    return this.tripsService.startActiveTrip(id, user.userId);
+  }
 }

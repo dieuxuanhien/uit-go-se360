@@ -186,6 +186,7 @@ export class TripsService {
       driverAssignedAt: trip.driverAssignedAt,
       startedAt: trip.startedAt,
       arrivedAt: trip.arrivedAt,
+      pickedUpAt: trip.pickedUpAt,
       completedAt: trip.completedAt,
       cancelledAt: trip.cancelledAt,
       cancellationReason: trip.cancellationReason,
@@ -296,6 +297,55 @@ export class TripsService {
       driverId,
       previousStatus: TripStatus.EN_ROUTE_TO_PICKUP,
       newStatus: TripStatus.ARRIVED_AT_PICKUP,
+    });
+
+    // Fetch updated trip with users for response
+    const tripWithUsers = await this.tripsRepository.findByIdWithUsers(tripId);
+    if (!tripWithUsers) {
+      throw new InternalServerErrorException('Failed to fetch updated trip');
+    }
+
+    return this.mapToTripDto(tripWithUsers);
+  }
+
+  async startActiveTrip(tripId: string, driverId: string): Promise<TripDto> {
+    // Fetch trip
+    const trip = await this.tripsRepository.findById(tripId);
+
+    // Validate existence
+    if (!trip) {
+      throw new NotFoundException(`Trip with ID ${tripId} not found`);
+    }
+
+    // Validate status
+    if (trip.status !== TripStatus.ARRIVED_AT_PICKUP) {
+      throw new BadRequestException(
+        `Cannot start trip in ${trip.status} status. Trip must be in ARRIVED_AT_PICKUP status.`,
+      );
+    }
+
+    // Validate driver authorization
+    if (trip.driverId !== driverId) {
+      this.logger.warn('Unauthorized trip start attempt', {
+        tripId,
+        attemptedByDriver: driverId,
+        assignedDriver: trip.driverId,
+      });
+      throw new ForbiddenException(
+        'Only the assigned driver can start this trip',
+      );
+    }
+
+    // Update trip status with pickedUpAt timestamp
+    await this.tripsRepository.updateStatus(tripId, TripStatus.IN_PROGRESS, {
+      pickedUpAt: new Date(),
+    });
+
+    this.logger.log('Trip started - passenger picked up', {
+      tripId,
+      driverId,
+      previousStatus: TripStatus.ARRIVED_AT_PICKUP,
+      newStatus: TripStatus.IN_PROGRESS,
     });
 
     // Fetch updated trip with users for response

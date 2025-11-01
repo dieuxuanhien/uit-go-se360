@@ -567,4 +567,140 @@ describe('TripsService', () => {
       expect(result.arrivedAt).toEqual(arrivedAt);
     });
   });
+
+  describe('startActiveTrip', () => {
+    const tripId = 'trip-123';
+    const driverId = 'driver-789';
+    const pickedUpAt = new Date();
+
+    it('should successfully start active trip for valid trip and driver', async () => {
+      const arrivedTrip = {
+        ...mockTrip,
+        driverId,
+        status: TripStatus.ARRIVED_AT_PICKUP,
+      };
+      const updatedTripWithUsers = {
+        ...arrivedTrip,
+        status: TripStatus.IN_PROGRESS,
+        pickedUpAt,
+        passenger: mockPassenger,
+        driver: mockDriver,
+      };
+
+      repository.findById.mockResolvedValue(arrivedTrip as any);
+      repository.updateStatus.mockResolvedValue(undefined);
+      repository.findByIdWithUsers.mockResolvedValue(
+        updatedTripWithUsers as any,
+      );
+
+      const result = await service.startActiveTrip(tripId, driverId);
+
+      expect(result.status).toBe(TripStatus.IN_PROGRESS);
+      expect(result.pickedUpAt).toEqual(pickedUpAt);
+      expect(result.id).toBe(tripId);
+      expect(result.driverId).toBe(driverId);
+      expect(repository.findById).toHaveBeenCalledWith(tripId);
+      expect(repository.updateStatus).toHaveBeenCalledWith(
+        tripId,
+        TripStatus.IN_PROGRESS,
+        { pickedUpAt: expect.any(Date) },
+      );
+      expect(repository.findByIdWithUsers).toHaveBeenCalledWith(tripId);
+    });
+
+    it('should throw NotFoundException if trip does not exist', async () => {
+      repository.findById.mockResolvedValue(null);
+
+      await expect(service.startActiveTrip(tripId, driverId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(repository.findById).toHaveBeenCalledWith(tripId);
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if trip status is not ARRIVED_AT_PICKUP', async () => {
+      const invalidTrip = {
+        ...mockTrip,
+        status: TripStatus.EN_ROUTE_TO_PICKUP,
+      };
+
+      repository.findById.mockResolvedValue(invalidTrip as any);
+
+      await expect(service.startActiveTrip(tripId, driverId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException if different driver attempts to start trip', async () => {
+      const arrivedTrip = {
+        ...mockTrip,
+        driverId: 'different-driver',
+        status: TripStatus.ARRIVED_AT_PICKUP,
+      };
+
+      repository.findById.mockResolvedValue(arrivedTrip as any);
+
+      await expect(service.startActiveTrip(tripId, driverId)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should call updateStatus with correct parameters', async () => {
+      const arrivedTrip = {
+        ...mockTrip,
+        driverId,
+        status: TripStatus.ARRIVED_AT_PICKUP,
+      };
+      const updatedTripWithUsers = {
+        ...arrivedTrip,
+        status: TripStatus.IN_PROGRESS,
+        pickedUpAt,
+        passenger: mockPassenger,
+        driver: mockDriver,
+      };
+
+      repository.findById.mockResolvedValue(arrivedTrip as any);
+      repository.updateStatus.mockResolvedValue(undefined);
+      repository.findByIdWithUsers.mockResolvedValue(
+        updatedTripWithUsers as any,
+      );
+
+      await service.startActiveTrip(tripId, driverId);
+
+      expect(repository.updateStatus).toHaveBeenCalledWith(
+        tripId,
+        TripStatus.IN_PROGRESS,
+        { pickedUpAt: expect.any(Date) },
+      );
+    });
+
+    it('should verify response includes updated status and timestamp', async () => {
+      const arrivedTrip = {
+        ...mockTrip,
+        driverId,
+        status: TripStatus.ARRIVED_AT_PICKUP,
+      };
+      const updatedTripWithUsers = {
+        ...arrivedTrip,
+        status: TripStatus.IN_PROGRESS,
+        pickedUpAt,
+        passenger: mockPassenger,
+        driver: mockDriver,
+      };
+
+      repository.findById.mockResolvedValue(arrivedTrip as any);
+      repository.updateStatus.mockResolvedValue(undefined);
+      repository.findByIdWithUsers.mockResolvedValue(
+        updatedTripWithUsers as any,
+      );
+
+      const result = await service.startActiveTrip(tripId, driverId);
+
+      expect(result.status).toBe(TripStatus.IN_PROGRESS);
+      expect(result.pickedUpAt).toBeDefined();
+      expect(result.pickedUpAt).toEqual(pickedUpAt);
+    });
+  });
 });
