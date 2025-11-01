@@ -46,7 +46,8 @@ describe('Trips (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clean trips table before each test
+    // Clean tables before each test
+    await prisma.driverNotification.deleteMany({});
     await prisma.trip.deleteMany({});
   });
 

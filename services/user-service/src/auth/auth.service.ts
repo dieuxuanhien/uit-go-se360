@@ -121,7 +121,7 @@ export class AuthService {
    */
   private generateToken(userId: string, email: string, role: string): string {
     const payload = {
-      sub: userId,
+      userId: userId,
       email,
       role,
     };

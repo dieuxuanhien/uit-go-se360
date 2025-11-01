@@ -4,6 +4,7 @@ import { TripStatus, NotificationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DriverServiceClient } from '../drivers/driver-service.client';
 import driverNotificationConfig from '../config/driver-notification.config';
+import { NotificationDto } from './dto';
 
 interface FindAndNotifyResult {
   driversNotified: number;
@@ -129,5 +130,60 @@ export class DriverNotificationService {
 
       throw error;
     }
+  }
+
+  async getDriverNotifications(driverId: string): Promise<NotificationDto[]> {
+    const fifteenSecondsAgo = new Date(Date.now() - 15000); // 15 seconds in milliseconds
+
+    const notifications = await this.prisma.driverNotification.findMany({
+      where: {
+        driverId,
+        status: NotificationStatus.PENDING,
+        notifiedAt: {
+          gte: fifteenSecondsAgo,
+        },
+      },
+      include: {
+        trip: true,
+      },
+      orderBy: {
+        notifiedAt: 'asc',
+      },
+    });
+
+    const result: NotificationDto[] = notifications
+      .map((notification) => {
+        const ageInSeconds = Math.floor(
+          (Date.now() - notification.notifiedAt.getTime()) / 1000,
+        );
+        const timeRemainingSeconds = Math.max(0, 15 - ageInSeconds);
+
+        // Skip if expired
+        if (timeRemainingSeconds <= 0) {
+          return null;
+        }
+
+        return {
+          notificationId: notification.id,
+          tripId: notification.tripId,
+          pickupLatitude: Number(notification.trip.pickupLatitude),
+          pickupLongitude: Number(notification.trip.pickupLongitude),
+          pickupAddress: notification.trip.pickupAddress,
+          destinationLatitude: Number(notification.trip.destinationLatitude),
+          destinationLongitude: Number(notification.trip.destinationLongitude),
+          destinationAddress: notification.trip.destinationAddress,
+          estimatedFare: notification.trip.estimatedFare,
+          timeRemainingSeconds,
+          notifiedAt: notification.notifiedAt,
+        };
+      })
+      .filter((dto): dto is NotificationDto => dto !== null);
+
+    this.logger.log('Retrieved notifications for driver', {
+      driverId,
+      count: result.length,
+    });
+
+    return result;
   }
 }

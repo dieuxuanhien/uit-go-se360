@@ -236,6 +236,61 @@ Create a new trip request as a passenger.
 - **403 Forbidden** - User is not a PASSENGER (only passengers can create trips)
 - **500 Internal Server Error** - Unexpected server error
 
+### Driver Notifications
+
+#### GET /notifications
+
+Retrieve pending trip notifications for the authenticated driver.
+
+**Authentication Required:** Bearer token with DRIVER role
+
+**Request:** No body, requires JWT Bearer token in Authorization header
+
+**Success Response (200 OK):**
+
+```json
+[
+  {
+    "notificationId": "123e4567-e89b-12d3-a456-426614174000",
+    "tripId": "550e8400-e29b-41d4-a716-446655440000",
+    "pickupLatitude": 10.762622,
+    "pickupLongitude": 106.660172,
+    "pickupAddress": "District 1, Ho Chi Minh City",
+    "destinationLatitude": 10.823099,
+    "destinationLongitude": 106.629662,
+    "destinationAddress": "Tan Binh District, Ho Chi Minh City",
+    "estimatedFare": 2500,
+    "timeRemainingSeconds": 12,
+    "notifiedAt": "2025-11-01T10:30:00Z"
+  }
+]
+```
+
+**Response 200 OK (No Notifications):**
+
+```json
+[]
+```
+
+**Error Responses:**
+
+- **401 Unauthorized** - Missing or invalid JWT token
+- **403 Forbidden** - User is not a driver (role check failed)
+
+**Notes:**
+
+- Only returns notifications with status = 'PENDING'
+- Filters out notifications older than 15 seconds
+- Results sorted by creation time (oldest first)
+- Each notification includes full trip details for driver review
+
+**Example curl command:**
+
+```bash
+curl -X GET "http://localhost:3002/notifications" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
 ## Testing
 
 ### Run Unit Tests

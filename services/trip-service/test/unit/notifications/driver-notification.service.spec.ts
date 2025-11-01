@@ -21,6 +21,7 @@ describe('DriverNotificationService', () => {
     },
     driverNotification: {
       createMany: jest.fn(),
+      findMany: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -296,6 +297,204 @@ describe('DriverNotificationService', () => {
       await expect(
         service.findAndNotifyDrivers(tripId, pickupLatitude, pickupLongitude),
       ).rejects.toThrow('Transaction failed');
+    });
+  });
+
+  describe('getDriverNotifications', () => {
+    const driverId = 'driver-123';
+
+    it('should return 2 pending notifications within 15 seconds', async () => {
+      const now = new Date();
+      const tenSecondsAgo = new Date(now.getTime() - 10000);
+      const fiveSecondsAgo = new Date(now.getTime() - 5000);
+
+      const mockNotifications = [
+        {
+          id: 'notif-1',
+          tripId: 'trip-1',
+          driverId,
+          status: NotificationStatus.PENDING,
+          notifiedAt: tenSecondsAgo,
+          trip: {
+            pickupLatitude: 10.762622,
+            pickupLongitude: 106.660172,
+            pickupAddress: 'Pickup 1',
+            destinationLatitude: 10.823099,
+            destinationLongitude: 106.629662,
+            destinationAddress: 'Dest 1',
+            estimatedFare: 2500,
+          },
+        },
+        {
+          id: 'notif-2',
+          tripId: 'trip-2',
+          driverId,
+          status: NotificationStatus.PENDING,
+          notifiedAt: fiveSecondsAgo,
+          trip: {
+            pickupLatitude: 10.77,
+            pickupLongitude: 106.67,
+            pickupAddress: 'Pickup 2',
+            destinationLatitude: 10.82,
+            destinationLongitude: 106.63,
+            destinationAddress: 'Dest 2',
+            estimatedFare: 3000,
+          },
+        },
+      ];
+
+      mockPrismaService.driverNotification.findMany.mockResolvedValue(
+        mockNotifications,
+      );
+
+      const result = await service.getDriverNotifications(driverId);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].notificationId).toBe('notif-1');
+      expect(result[0].timeRemainingSeconds).toBe(5); // 15 - 10
+      expect(result[1].notificationId).toBe('notif-2');
+      expect(result[1].timeRemainingSeconds).toBe(10); // 15 - 5
+      expect(
+        mockPrismaService.driverNotification.findMany,
+      ).toHaveBeenCalledWith({
+        where: {
+          driverId,
+          status: NotificationStatus.PENDING,
+          notifiedAt: {
+            gte: expect.any(Date),
+          },
+        },
+        include: {
+          trip: true,
+        },
+        orderBy: {
+          notifiedAt: 'asc',
+        },
+      });
+    });
+
+    it('should filter out notifications older than 15 seconds', async () => {
+      const now = new Date();
+      const twentySecondsAgo = new Date(now.getTime() - 20000);
+
+      const mockNotifications = [
+        {
+          id: 'notif-1',
+          tripId: 'trip-1',
+          driverId,
+          status: NotificationStatus.PENDING,
+          notifiedAt: twentySecondsAgo,
+          trip: {
+            pickupLatitude: 10.762622,
+            pickupLongitude: 106.660172,
+            pickupAddress: 'Pickup 1',
+            destinationLatitude: 10.823099,
+            destinationLongitude: 106.629662,
+            destinationAddress: 'Dest 1',
+            estimatedFare: 2500,
+          },
+        },
+      ];
+
+      mockPrismaService.driverNotification.findMany.mockResolvedValue(
+        mockNotifications,
+      );
+
+      const result = await service.getDriverNotifications(driverId);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('should return only PENDING notifications', async () => {
+      const now = new Date();
+      const fiveSecondsAgo = new Date(now.getTime() - 5000);
+
+      const mockNotifications = [
+        {
+          id: 'notif-1',
+          tripId: 'trip-1',
+          driverId,
+          status: NotificationStatus.PENDING,
+          notifiedAt: fiveSecondsAgo,
+          trip: {
+            pickupLatitude: 10.762622,
+            pickupLongitude: 106.660172,
+            pickupAddress: 'Pickup 1',
+            destinationLatitude: 10.823099,
+            destinationLongitude: 106.629662,
+            destinationAddress: 'Dest 1',
+            estimatedFare: 2500,
+          },
+        },
+      ];
+
+      mockPrismaService.driverNotification.findMany.mockResolvedValue(
+        mockNotifications,
+      );
+
+      const result = await service.getDriverNotifications(driverId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].notificationId).toBe('notif-1');
+    });
+
+    it('should sort notifications by notifiedAt ascending', async () => {
+      const now = new Date();
+      const tenSecondsAgo = new Date(now.getTime() - 10000);
+      const fiveSecondsAgo = new Date(now.getTime() - 5000);
+
+      const mockNotifications = [
+        {
+          id: 'notif-1',
+          tripId: 'trip-1',
+          driverId,
+          status: NotificationStatus.PENDING,
+          notifiedAt: tenSecondsAgo,
+          trip: {
+            pickupLatitude: 10.762622,
+            pickupLongitude: 106.660172,
+            pickupAddress: 'Pickup 1',
+            destinationLatitude: 10.823099,
+            destinationLongitude: 106.629662,
+            destinationAddress: 'Dest 1',
+            estimatedFare: 2500,
+          },
+        },
+        {
+          id: 'notif-2',
+          tripId: 'trip-2',
+          driverId,
+          status: NotificationStatus.PENDING,
+          notifiedAt: fiveSecondsAgo,
+          trip: {
+            pickupLatitude: 10.77,
+            pickupLongitude: 106.67,
+            pickupAddress: 'Pickup 2',
+            destinationLatitude: 10.82,
+            destinationLongitude: 106.63,
+            destinationAddress: 'Dest 2',
+            estimatedFare: 3000,
+          },
+        },
+      ];
+
+      mockPrismaService.driverNotification.findMany.mockResolvedValue(
+        mockNotifications,
+      );
+
+      const result = await service.getDriverNotifications(driverId);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].notificationId).toBe('notif-1'); // older first
+      expect(result[1].notificationId).toBe('notif-2');
+    });
+
+    it('should return empty array when no notifications', async () => {
+      mockPrismaService.driverNotification.findMany.mockResolvedValue([]);
+
+      const result = await service.getDriverNotifications(driverId);
+
+      expect(result).toHaveLength(0);
     });
   });
 });

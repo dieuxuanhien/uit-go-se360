@@ -31,7 +31,11 @@ export class JwtAuthGuard implements CanActivate {
     // Mock JWT decode - in production use proper JWT library
     try {
       const payload = this.decodeJWT(token);
-      request.user = payload;
+      request.user = {
+        userId: payload.userId,
+        role: payload.role,
+        email: payload.email,
+      };
       return true;
     } catch (error) {
       throw new UnauthorizedException('Invalid authentication token');

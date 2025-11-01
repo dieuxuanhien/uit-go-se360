@@ -224,7 +224,7 @@ describe('Authentication (e2e)', () => {
         Buffer.from(payloadBase64, 'base64').toString(),
       );
 
-      expect(payload).toHaveProperty('sub', userId);
+      expect(payload).toHaveProperty('userId', userId);
       expect(payload).toHaveProperty('email', 'jwt@example.com');
       expect(payload).toHaveProperty('role', 'DRIVER');
     });

@@ -27,7 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   validate(payload: any) {
     return {
-      userId: payload.sub,
+      userId: payload.userId,
       email: payload.email,
       role: payload.role,
     };
