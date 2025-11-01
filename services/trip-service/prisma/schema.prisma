@@ -14,6 +14,31 @@ model PrismaHealthCheck {
   @@map("_prisma_health_check")
 }
 
+enum UserRole {
+  PASSENGER
+  DRIVER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  phoneNumber  String   @map("phone_number")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  passengerTrips Trip[] @relation("PassengerTrips")
+  driverTrips    Trip[] @relation("DriverTrips")
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
 enum TripStatus {
   REQUESTED
   FINDING_DRIVER
@@ -58,6 +83,9 @@ model Trip {
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  passenger User   @relation("PassengerTrips", fields: [passengerId], references: [id])
+  driver    User?  @relation("DriverTrips", fields: [driverId], references: [id])
 
   driverNotifications DriverNotification[]
 

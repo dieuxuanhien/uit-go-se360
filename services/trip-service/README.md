@@ -236,6 +236,92 @@ Create a new trip request as a passenger.
 - **403 Forbidden** - User is not a PASSENGER (only passengers can create trips)
 - **500 Internal Server Error** - Unexpected server error
 
+#### GET /trips/{trip_id}
+
+Retrieve details of a specific trip.
+
+**Authentication Required:** Bearer token with PASSENGER or DRIVER role
+
+**Authorization:**
+
+- PASSENGER: Can only view trips where `passengerId` matches authenticated user ID
+- DRIVER: Can only view trips where `driverId` matches authenticated user ID
+
+**Path Parameters:**
+
+- `trip_id`: UUID - Trip identifier
+
+**Request Body:** None
+
+**Success Response (200 OK):**
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "passengerId": "550e8400-e29b-41d4-a716-446655440000",
+  "driverId": "660e8400-e29b-41d4-a716-446655440001",
+  "status": "DRIVER_ASSIGNED",
+  "pickupLatitude": 10.762622,
+  "pickupLongitude": 106.660172,
+  "pickupAddress": "District 1, Ho Chi Minh City",
+  "destinationLatitude": 10.823099,
+  "destinationLongitude": 106.629662,
+  "destinationAddress": "Tan Binh District, Ho Chi Minh City",
+  "estimatedFare": 2500,
+  "actualFare": null,
+  "estimatedDistance": 8.5,
+  "requestedAt": "2025-11-01T10:30:00Z",
+  "driverAssignedAt": "2025-11-01T10:31:15Z",
+  "startedAt": null,
+  "completedAt": null,
+  "cancelledAt": null,
+  "cancellationReason": null,
+  "passenger": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "passenger@example.com",
+    "role": "PASSENGER",
+    "firstName": "John",
+    "lastName": "Doe",
+    "phoneNumber": "+84901234567"
+  },
+  "driver": {
+    "id": "660e8400-e29b-41d4-a716-446655440001",
+    "email": "driver@example.com",
+    "role": "DRIVER",
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "phoneNumber": "+84909876543"
+  }
+}
+```
+
+**Error Responses:**
+
+- **401 Unauthorized** - Missing or invalid JWT token
+- **403 Forbidden** - User not authorized to view this trip
+  ```json
+  {
+    "statusCode": 403,
+    "message": "You are not authorized to view this trip",
+    "error": "Forbidden"
+  }
+  ```
+- **404 Not Found** - Trip does not exist
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Trip with ID {trip_id} not found",
+    "error": "Not Found"
+  }
+  ```
+
+**Example curl command:**
+
+```bash
+curl -X GET "http://localhost:3002/trips/123e4567-e89b-12d3-a456-426614174000" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
 ### Driver Notifications
 
 #### GET /notifications

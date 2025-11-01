@@ -49,6 +49,20 @@ describe('Trips (e2e)', () => {
     // Clean tables before each test
     await prisma.driverNotification.deleteMany({});
     await prisma.trip.deleteMany({});
+    await prisma.user.deleteMany({});
+
+    // Create test user for POST tests
+    await prisma.user.create({
+      data: {
+        id: 'passenger-123',
+        email: 'passenger@test.com',
+        passwordHash: 'hash',
+        role: 'PASSENGER',
+        firstName: 'Test',
+        lastName: 'Passenger',
+        phoneNumber: '+1234567890',
+      },
+    });
   });
 
   describe('POST /trips', () => {
@@ -234,6 +248,169 @@ describe('Trips (e2e)', () => {
       expect(response.body.estimatedDistance).toBe(0);
       // Should still have minimum fare
       expect(response.body.estimatedFare).toBeGreaterThan(0);
+    });
+  });
+
+  describe('GET /trips/:id', () => {
+    let testPassenger, testDriver, testTrip, testTripWithDriver;
+
+    beforeEach(async () => {
+      // Create test users
+      testPassenger = await prisma.user.create({
+        data: {
+          id: 'passenger-test-123',
+          email: 'passenger-get@test.com',
+          passwordHash: 'hash',
+          role: 'PASSENGER',
+          firstName: 'Test',
+          lastName: 'Passenger',
+          phoneNumber: '+1234567890',
+        },
+      });
+
+      testDriver = await prisma.user.create({
+        data: {
+          id: 'driver-test-456',
+          email: 'driver-get@test.com',
+          passwordHash: 'hash',
+          role: 'DRIVER',
+          firstName: 'Test',
+          lastName: 'Driver',
+          phoneNumber: '+0987654321',
+        },
+      });
+
+      // Create test trip
+      testTrip = await prisma.trip.create({
+        data: {
+          passengerId: testPassenger.id,
+          pickupLatitude: 10.762622,
+          pickupLongitude: 106.660172,
+          pickupAddress: 'District 1, Ho Chi Minh City',
+          destinationLatitude: 10.823099,
+          destinationLongitude: 106.629662,
+          destinationAddress: 'Tan Binh District, Ho Chi Minh City',
+          estimatedFare: 2500,
+          estimatedDistance: 8.5,
+          status: TripStatus.REQUESTED,
+        },
+      });
+
+      // Create test trip with driver
+      testTripWithDriver = await prisma.trip.create({
+        data: {
+          passengerId: testPassenger.id,
+          driverId: testDriver.id,
+          pickupLatitude: 10.762622,
+          pickupLongitude: 106.660172,
+          pickupAddress: 'District 1, Ho Chi Minh City',
+          destinationLatitude: 10.823099,
+          destinationLongitude: 106.629662,
+          destinationAddress: 'Tan Binh District, Ho Chi Minh City',
+          estimatedFare: 2500,
+          estimatedDistance: 8.5,
+          status: TripStatus.DRIVER_ASSIGNED,
+        },
+      });
+    });
+
+    it('should return 200 and trip details for passenger viewing own trip', async () => {
+      const passengerToken = generateToken(testPassenger.id, 'PASSENGER');
+
+      const response = await request(app.getHttpServer())
+        .get(`/trips/${testTrip.id}`)
+        .set('Authorization', `Bearer ${passengerToken}`)
+        .expect(200);
+
+      expect(response.body.id).toBe(testTrip.id);
+      expect(response.body.passengerId).toBe(testPassenger.id);
+      expect(response.body.status).toBe(TripStatus.REQUESTED);
+      expect(response.body.passenger).toBeDefined();
+      expect(response.body.passenger.id).toBe(testPassenger.id);
+      expect(response.body.driver).toBeNull();
+    });
+
+    it('should return 200 and trip details for driver viewing assigned trip', async () => {
+      const driverToken = generateToken(testDriver.id, 'DRIVER');
+
+      const response = await request(app.getHttpServer())
+        .get(`/trips/${testTripWithDriver.id}`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .expect(200);
+
+      expect(response.body.id).toBe(testTripWithDriver.id);
+      expect(response.body.driverId).toBe(testDriver.id);
+      expect(response.body.status).toBe(TripStatus.DRIVER_ASSIGNED);
+      expect(response.body.driver).toBeDefined();
+      expect(response.body.driver.id).toBe(testDriver.id);
+    });
+
+    it("should return 403 for passenger viewing another passenger's trip", async () => {
+      const otherPassengerToken = generateToken('other-passenger', 'PASSENGER');
+
+      await request(app.getHttpServer())
+        .get(`/trips/${testTrip.id}`)
+        .set('Authorization', `Bearer ${otherPassengerToken}`)
+        .expect(403);
+    });
+
+    it('should return 403 for driver viewing unassigned trip', async () => {
+      const driverToken = generateToken(testDriver.id, 'DRIVER');
+
+      await request(app.getHttpServer())
+        .get(`/trips/${testTrip.id}`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .expect(403);
+    });
+
+    it('should return 403 for driver viewing trip assigned to different driver', async () => {
+      const otherDriverToken = generateToken('other-driver', 'DRIVER');
+
+      await request(app.getHttpServer())
+        .get(`/trips/${testTripWithDriver.id}`)
+        .set('Authorization', `Bearer ${otherDriverToken}`)
+        .expect(403);
+    });
+
+    it('should return 404 for non-existent trip', async () => {
+      const passengerToken = generateToken(testPassenger.id, 'PASSENGER');
+
+      await request(app.getHttpServer())
+        .get('/trips/non-existent-id')
+        .set('Authorization', `Bearer ${passengerToken}`)
+        .expect(404);
+    });
+
+    it('should return 401 for unauthenticated request', async () => {
+      await request(app.getHttpServer())
+        .get(`/trips/${testTrip.id}`)
+        .expect(401);
+    });
+
+    it('should include all required fields in response', async () => {
+      const passengerToken = generateToken(testPassenger.id, 'PASSENGER');
+
+      const response = await request(app.getHttpServer())
+        .get(`/trips/${testTrip.id}`)
+        .set('Authorization', `Bearer ${passengerToken}`)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('id');
+      expect(response.body).toHaveProperty('passengerId');
+      expect(response.body).toHaveProperty('driverId');
+      expect(response.body).toHaveProperty('status');
+      expect(response.body).toHaveProperty('pickupLatitude');
+      expect(response.body).toHaveProperty('pickupLongitude');
+      expect(response.body).toHaveProperty('pickupAddress');
+      expect(response.body).toHaveProperty('destinationLatitude');
+      expect(response.body).toHaveProperty('destinationLongitude');
+      expect(response.body).toHaveProperty('destinationAddress');
+      expect(response.body).toHaveProperty('estimatedFare');
+      expect(response.body).toHaveProperty('actualFare');
+      expect(response.body).toHaveProperty('estimatedDistance');
+      expect(response.body).toHaveProperty('requestedAt');
+      expect(response.body).toHaveProperty('passenger');
+      expect(response.body).toHaveProperty('driver');
     });
   });
 });

@@ -89,6 +89,40 @@ describe('Notifications (e2e)', () => {
     // Clean tables before each test
     await prisma.driverNotification.deleteMany({});
     await prisma.trip.deleteMany({});
+    await prisma.user.deleteMany({});
+
+    // Create test users
+    await prisma.user.createMany({
+      data: [
+        {
+          id: 'passenger-456',
+          email: 'passenger@test.com',
+          role: 'PASSENGER',
+          firstName: 'Test',
+          lastName: 'Passenger',
+          phoneNumber: '+1234567890',
+          passwordHash: 'hashed-password',
+        },
+        {
+          id: 'driver-123',
+          email: 'driver@test.com',
+          role: 'DRIVER',
+          firstName: 'Test',
+          lastName: 'Driver',
+          phoneNumber: '+0987654321',
+          passwordHash: 'hashed-password',
+        },
+        {
+          id: 'driver-789',
+          email: 'driver2@test.com',
+          role: 'DRIVER',
+          firstName: 'Test2',
+          lastName: 'Driver',
+          phoneNumber: '+1122334455',
+          passwordHash: 'hashed-password',
+        },
+      ],
+    });
   });
 
   describe('GET /notifications', () => {

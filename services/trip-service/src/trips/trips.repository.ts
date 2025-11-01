@@ -3,7 +3,8 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { Trip, TripStatus, Prisma } from '@prisma/client';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { Trip, TripStatus, Prisma, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreateTripData {
@@ -54,6 +55,24 @@ export class TripsRepository {
     try {
       return await this.prisma.trip.findUnique({
         where: { id },
+      });
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to fetch trip');
+    }
+  }
+
+  async findByIdWithUsers(
+    id: string,
+  ): Promise<Prisma.TripGetPayload<{
+    include: { passenger: true; driver: true };
+  }> | null> {
+    try {
+      return await this.prisma.trip.findUnique({
+        where: { id },
+        include: {
+          passenger: true,
+          driver: true,
+        },
       });
     } catch (error) {
       throw new InternalServerErrorException('Failed to fetch trip');

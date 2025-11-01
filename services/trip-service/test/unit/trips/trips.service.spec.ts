@@ -3,8 +3,14 @@ import { TripsService } from '../../../src/trips/trips.service';
 import { TripsRepository } from '../../../src/trips/trips.repository';
 import { FareCalculatorService } from '../../../src/fare/fare-calculator.service';
 import { DriverNotificationService } from '../../../src/notifications/driver-notification.service';
-import { TripStatus } from '@prisma/client';
-import { InternalServerErrorException } from '@nestjs/common';
+import { TripStatus, UserRole } from '@prisma/client';
+import {
+  InternalServerErrorException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { TripDto } from '../../../src/trips/dto/trip.dto';
+import { UserDto } from '../../../src/trips/dto/user.dto';
 
 describe('TripsService', () => {
   let service: TripsService;
@@ -35,11 +41,43 @@ describe('TripsService', () => {
     updatedAt: new Date(),
   };
 
+  const mockPassenger = {
+    id: 'passenger-456',
+    email: 'passenger@example.com',
+    role: UserRole.PASSENGER,
+    firstName: 'John',
+    lastName: 'Doe',
+    phoneNumber: '+84901234567',
+  };
+
+  const mockDriver = {
+    id: 'driver-789',
+    email: 'driver@example.com',
+    role: UserRole.DRIVER,
+    firstName: 'Jane',
+    lastName: 'Smith',
+    phoneNumber: '+84909876543',
+  };
+
+  const mockTripWithUsers = {
+    ...mockTrip,
+    passenger: mockPassenger,
+    driver: null,
+  };
+
+  const mockTripWithDriver = {
+    ...mockTrip,
+    driverId: 'driver-789',
+    status: TripStatus.DRIVER_ASSIGNED,
+    driver: mockDriver,
+  };
+
   beforeEach(async () => {
     const mockRepository = {
       create: jest.fn(),
       findById: jest.fn(),
       findByPassengerId: jest.fn(),
+      findByIdWithUsers: jest.fn(),
     };
 
     const mockFareCalculator = {
@@ -189,6 +227,103 @@ describe('TripsService', () => {
       expect(result).toHaveProperty('estimatedDistance');
       expect(result).toHaveProperty('createdAt');
       expect(result).toHaveProperty('updatedAt');
+    });
+  });
+
+  describe('getTripById', () => {
+    it('should return trip details for authorized passenger', async () => {
+      repository.findByIdWithUsers.mockResolvedValue(mockTripWithUsers as any);
+
+      const result = await service.getTripById(
+        'trip-123',
+        'passenger-456',
+        'PASSENGER',
+      );
+
+      expect(result.id).toBe('trip-123');
+      expect(result.passengerId).toBe('passenger-456');
+      expect(result.passenger).toBeDefined();
+      expect(result.passenger?.id).toBe('passenger-456');
+      expect(result.driver).toBeUndefined();
+    });
+
+    it('should return trip details for authorized driver', async () => {
+      repository.findByIdWithUsers.mockResolvedValue(mockTripWithDriver as any);
+
+      const result = await service.getTripById(
+        'trip-123',
+        'driver-789',
+        'DRIVER',
+      );
+
+      expect(result.id).toBe('trip-123');
+      expect(result.driverId).toBe('driver-789');
+      expect(result.driver).toBeDefined();
+      expect(result.driver?.id).toBe('driver-789');
+    });
+
+    it('should throw NotFoundException if trip not found', async () => {
+      repository.findByIdWithUsers.mockResolvedValue(null);
+
+      await expect(
+        service.getTripById('invalid-id', 'passenger-456', 'PASSENGER'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw ForbiddenException if passenger tries to view another passenger's trip", async () => {
+      repository.findByIdWithUsers.mockResolvedValue(mockTripWithUsers as any);
+
+      await expect(
+        service.getTripById('trip-123', 'other-passenger', 'PASSENGER'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if driver tries to view unassigned trip', async () => {
+      repository.findByIdWithUsers.mockResolvedValue(mockTripWithUsers as any);
+
+      await expect(
+        service.getTripById('trip-123', 'driver-789', 'DRIVER'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if driver tries to view trip assigned to different driver', async () => {
+      repository.findByIdWithUsers.mockResolvedValue(mockTripWithDriver as any);
+
+      await expect(
+        service.getTripById('trip-123', 'other-driver', 'DRIVER'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should include all required fields in response', async () => {
+      repository.findByIdWithUsers.mockResolvedValue(mockTripWithUsers as any);
+
+      const result = await service.getTripById(
+        'trip-123',
+        'passenger-456',
+        'PASSENGER',
+      );
+
+      expect(result).toHaveProperty('id');
+      expect(result).toHaveProperty('passengerId');
+      expect(result).toHaveProperty('driverId');
+      expect(result).toHaveProperty('status');
+      expect(result).toHaveProperty('pickupLatitude');
+      expect(result).toHaveProperty('pickupLongitude');
+      expect(result).toHaveProperty('pickupAddress');
+      expect(result).toHaveProperty('destinationLatitude');
+      expect(result).toHaveProperty('destinationLongitude');
+      expect(result).toHaveProperty('destinationAddress');
+      expect(result).toHaveProperty('estimatedFare');
+      expect(result).toHaveProperty('actualFare');
+      expect(result).toHaveProperty('estimatedDistance');
+      expect(result).toHaveProperty('requestedAt');
+      expect(result).toHaveProperty('driverAssignedAt');
+      expect(result).toHaveProperty('startedAt');
+      expect(result).toHaveProperty('completedAt');
+      expect(result).toHaveProperty('cancelledAt');
+      expect(result).toHaveProperty('cancellationReason');
+      expect(result).toHaveProperty('passenger');
+      expect(result).toHaveProperty('driver');
     });
   });
 });
