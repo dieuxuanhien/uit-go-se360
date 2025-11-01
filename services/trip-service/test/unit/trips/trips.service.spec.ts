@@ -3,6 +3,7 @@ import { TripsService } from '../../../src/trips/trips.service';
 import { TripsRepository } from '../../../src/trips/trips.repository';
 import { FareCalculatorService } from '../../../src/fare/fare-calculator.service';
 import { DriverNotificationService } from '../../../src/notifications/driver-notification.service';
+import { DriverServiceClient } from '../../../src/integrations/driver-service.client';
 import { TripStatus, UserRole } from '@prisma/client';
 import {
   InternalServerErrorException,
@@ -12,11 +13,13 @@ import {
 } from '@nestjs/common';
 import { TripDto } from '../../../src/trips/dto/trip.dto';
 import { UserDto } from '../../../src/trips/dto/user.dto';
+import { TripLocationDto } from '../../../src/trips/dto/trip-location.dto';
 
 describe('TripsService', () => {
   let service: TripsService;
   let repository: jest.Mocked<TripsRepository>;
   let fareCalculator: jest.Mocked<FareCalculatorService>;
+  let driverServiceClient: jest.Mocked<DriverServiceClient>;
 
   const mockTrip = {
     id: 'trip-123',
@@ -91,6 +94,10 @@ describe('TripsService', () => {
       findAndNotifyDrivers: jest.fn(),
     };
 
+    const mockDriverServiceClient = {
+      getDriverLocation: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TripsService,
@@ -100,12 +107,17 @@ describe('TripsService', () => {
           provide: DriverNotificationService,
           useValue: mockDriverNotificationService,
         },
+        {
+          provide: DriverServiceClient,
+          useValue: mockDriverServiceClient,
+        },
       ],
     }).compile();
 
     service = module.get<TripsService>(TripsService);
     repository = module.get(TripsRepository);
     fareCalculator = module.get(FareCalculatorService);
+    driverServiceClient = module.get(DriverServiceClient);
   });
 
   it('should be defined', () => {
@@ -701,6 +713,158 @@ describe('TripsService', () => {
       expect(result.status).toBe(TripStatus.IN_PROGRESS);
       expect(result.pickedUpAt).toBeDefined();
       expect(result.pickedUpAt).toEqual(pickedUpAt);
+    });
+  });
+
+  describe('getCurrentTripLocation', () => {
+    const tripId = 'trip-123';
+    const passengerId = 'passenger-456';
+    const driverId = 'driver-789';
+
+    const mockActiveTrip = {
+      ...mockTrip,
+      driverId,
+      status: TripStatus.EN_ROUTE_TO_PICKUP,
+    };
+
+    const mockLocation = {
+      driverId,
+      latitude: 10.762622,
+      longitude: 106.660172,
+      isOnline: true,
+      heading: 45,
+      speed: 30.5,
+      accuracy: 10.2,
+      timestamp: new Date(),
+    };
+
+    it('should return location for authorized passenger', async () => {
+      repository.findById.mockResolvedValue(mockActiveTrip as any);
+      driverServiceClient.getDriverLocation.mockResolvedValue(mockLocation);
+
+      const result = await service.getCurrentTripLocation(tripId, passengerId);
+
+      expect(result.tripId).toBe(tripId);
+      expect(result.driverId).toBe(driverId);
+      expect(result.latitude).toBe(mockLocation.latitude);
+      expect(result.longitude).toBe(mockLocation.longitude);
+      expect(result.heading).toBe(mockLocation.heading);
+      expect(result.speed).toBe(mockLocation.speed);
+      expect(result.accuracy).toBe(mockLocation.accuracy);
+      expect(result.timestamp).toBe(mockLocation.timestamp);
+      expect(repository.findById).toHaveBeenCalledWith(tripId);
+      expect(driverServiceClient.getDriverLocation).toHaveBeenCalledWith(
+        driverId,
+      );
+    });
+
+    it('should return location for authorized driver', async () => {
+      repository.findById.mockResolvedValue(mockActiveTrip as any);
+      driverServiceClient.getDriverLocation.mockResolvedValue(mockLocation);
+
+      const result = await service.getCurrentTripLocation(tripId, driverId);
+
+      expect(result.tripId).toBe(tripId);
+      expect(result.driverId).toBe(driverId);
+      expect(driverServiceClient.getDriverLocation).toHaveBeenCalledWith(
+        driverId,
+      );
+    });
+
+    it('should throw NotFoundException if trip does not exist', async () => {
+      repository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.getCurrentTripLocation(tripId, passengerId),
+      ).rejects.toThrow(NotFoundException);
+      expect(repository.findById).toHaveBeenCalledWith(tripId);
+      expect(driverServiceClient.getDriverLocation).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if trip has no assigned driver', async () => {
+      const tripWithoutDriver = { ...mockTrip, driverId: null };
+      repository.findById.mockResolvedValue(tripWithoutDriver as any);
+
+      await expect(
+        service.getCurrentTripLocation(tripId, passengerId),
+      ).rejects.toThrow(BadRequestException);
+      expect(driverServiceClient.getDriverLocation).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if trip status is not active', async () => {
+      const inactiveTrip = {
+        ...mockTrip,
+        driverId,
+        status: TripStatus.REQUESTED,
+      };
+      repository.findById.mockResolvedValue(inactiveTrip as any);
+
+      await expect(
+        service.getCurrentTripLocation(tripId, passengerId),
+      ).rejects.toThrow(BadRequestException);
+      expect(driverServiceClient.getDriverLocation).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException if unauthorized user requests location', async () => {
+      repository.findById.mockResolvedValue(mockActiveTrip as any);
+
+      await expect(
+        service.getCurrentTripLocation(tripId, 'unauthorized-user'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(driverServiceClient.getDriverLocation).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException if driver location is not available', async () => {
+      repository.findById.mockResolvedValue(mockActiveTrip as any);
+      driverServiceClient.getDriverLocation.mockResolvedValue(null);
+
+      await expect(
+        service.getCurrentTripLocation(tripId, passengerId),
+      ).rejects.toThrow(NotFoundException);
+      expect(driverServiceClient.getDriverLocation).toHaveBeenCalledWith(
+        driverId,
+      );
+    });
+
+    it('should throw NotFoundException if location is stale (> 2 minutes)', async () => {
+      const staleLocation = {
+        ...mockLocation,
+        timestamp: new Date(Date.now() - 3 * 60 * 1000), // 3 minutes ago
+      };
+      repository.findById.mockResolvedValue(mockActiveTrip as any);
+      driverServiceClient.getDriverLocation.mockResolvedValue(staleLocation);
+
+      await expect(
+        service.getCurrentTripLocation(tripId, passengerId),
+      ).rejects.toThrow(NotFoundException);
+      expect(driverServiceClient.getDriverLocation).toHaveBeenCalledWith(
+        driverId,
+      );
+    });
+
+    it('should return location if within 2 minute window', async () => {
+      const recentLocation = {
+        ...mockLocation,
+        timestamp: new Date(Date.now() - 1 * 60 * 1000), // 1 minute ago
+      };
+      repository.findById.mockResolvedValue(mockActiveTrip as any);
+      driverServiceClient.getDriverLocation.mockResolvedValue(recentLocation);
+
+      const result = await service.getCurrentTripLocation(tripId, passengerId);
+
+      expect(result.timestamp).toBe(recentLocation.timestamp);
+    });
+
+    it('should call DriverServiceClient with correct driverId', async () => {
+      repository.findById.mockResolvedValue(mockActiveTrip as any);
+      driverServiceClient.getDriverLocation.mockResolvedValue(mockLocation);
+
+      await service.getCurrentTripLocation(tripId, passengerId);
+
+      expect(driverServiceClient.getDriverLocation).toHaveBeenCalledWith(
+        driverId,
+      );
+      expect(driverServiceClient.getDriverLocation).toHaveBeenCalledTimes(1);
     });
   });
 });

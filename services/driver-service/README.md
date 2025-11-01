@@ -166,6 +166,51 @@ curl -X PUT http://localhost:3003/drivers/location \
 - Driver automatically removed from search if location not updated
 - Allows for temporary connection loss without immediately removing driver
 
+#### GET /drivers/{driverId}/location
+
+Get current location for a specific driver by ID.
+
+**Authentication**: Required (JWT Bearer token, any authenticated user - DRIVER or PASSENGER)
+
+**Path Parameters**:
+
+- `driverId` (required): Driver identifier (UUID)
+
+**Response** (200 OK):
+
+```json
+{
+  "driverId": "550e8400-e29b-41d4-a716-446655440000",
+  "latitude": 10.762622,
+  "longitude": 106.660172,
+  "isOnline": true,
+  "heading": 45,
+  "speed": 30,
+  "accuracy": 10,
+  "timestamp": "2025-10-27T10:00:00.000Z"
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid JWT token
+- `404 Not Found`: Location not found for the specified driver
+- `503 Service Unavailable`: Redis connection failure
+
+**Example curl command**:
+
+```bash
+curl -X GET "http://localhost:3003/drivers/550e8400-e29b-41d4-a716-446655440000/location" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Usage Notes for TripService Integration**:
+
+1. Call this endpoint to retrieve driver location for trip tracking
+2. Returns `null` if no recent location update (expired from Redis)
+3. Used by TripService to provide real-time location during active trips
+4. Location staleness should be checked by the caller (> 2 minutes old)
+
 #### GET /drivers/search
 
 Search for nearby available drivers within a specified radius. Returns only online drivers sorted by distance (closest first).

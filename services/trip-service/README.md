@@ -322,6 +322,72 @@ curl -X GET "http://localhost:3002/trips/123e4567-e89b-12d3-a456-426614174000" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
+#### GET /trips/{trip_id}/current-location
+
+Retrieve the current location of the driver assigned to a trip. Only accessible by the trip's passenger or assigned driver during active trip statuses (EN_ROUTE_TO_PICKUP, ARRIVED_AT_PICKUP, IN_PROGRESS).
+
+**Authentication Required:** Bearer token with PASSENGER or DRIVER role
+
+**Authorization:**
+
+- PASSENGER: Can only view location for trips where `passengerId` matches authenticated user ID
+- DRIVER: Can only view location for trips where `driverId` matches authenticated user ID
+
+**Path Parameters:**
+
+- `trip_id`: UUID - Trip identifier
+
+**Request Body:** None
+
+**Success Response (200 OK):**
+
+```json
+{
+  "tripId": "123e4567-e89b-12d3-a456-426614174000",
+  "driverId": "660e8400-e29b-41d4-a716-446655440001",
+  "latitude": 10.762622,
+  "longitude": 106.660172,
+  "heading": 45,
+  "speed": 30.5,
+  "accuracy": 10.2,
+  "timestamp": "2025-11-01T10:35:30Z"
+}
+```
+
+**Error Responses:**
+
+- **401 Unauthorized** - Missing or invalid JWT token
+- **403 Forbidden** - User not authorized to view this trip location
+  ```json
+  {
+    "statusCode": 403,
+    "message": "Only trip passenger or driver can view location",
+    "error": "Forbidden"
+  }
+  ```
+- **404 Not Found** - Trip does not exist OR no recent location available (> 2 minutes old)
+  ```json
+  {
+    "statusCode": 404,
+    "message": "No recent location update available for this trip",
+    "error": "Not Found"
+  }
+  ```
+
+**Notes:**
+
+- Location data is fetched from DriverService in real-time
+- Locations older than 2 minutes are considered stale and return 404
+- Only works for trips with assigned drivers in active statuses
+- Recommended driver location update frequency: every 5-10 seconds during active trips
+
+**Example curl command:**
+
+```bash
+curl -X GET "http://localhost:3002/trips/123e4567-e89b-12d3-a456-426614174000/current-location" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
 #### POST /trips/{trip_id}/start-pickup
 
 Mark that a driver is en route to the pickup location for an assigned trip.

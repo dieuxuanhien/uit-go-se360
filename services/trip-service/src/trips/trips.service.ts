@@ -14,6 +14,8 @@ import { CreateTripDto } from './dto/create-trip.dto';
 import { TripResponseDto } from './dto/trip-response.dto';
 import { TripDto } from './dto/trip.dto';
 import { UserDto } from './dto/user.dto';
+import { TripLocationDto } from './dto/trip-location.dto';
+import { DriverServiceClient } from '../integrations/driver-service.client';
 
 @Injectable()
 export class TripsService {
@@ -23,6 +25,7 @@ export class TripsService {
     private readonly tripsRepository: TripsRepository,
     private readonly fareCalculator: FareCalculatorService,
     private readonly driverNotificationService: DriverNotificationService,
+    private readonly driverServiceClient: DriverServiceClient,
   ) {}
 
   async createTrip(
@@ -355,5 +358,88 @@ export class TripsService {
     }
 
     return this.mapToTripDto(tripWithUsers);
+  }
+
+  async getCurrentTripLocation(
+    tripId: string,
+    userId: string,
+  ): Promise<TripLocationDto> {
+    // Fetch trip
+    const trip = await this.tripsRepository.findById(tripId);
+
+    if (!trip) {
+      throw new NotFoundException(`Trip with ID ${tripId} not found`);
+    }
+
+    // Validate trip has assigned driver
+    if (!trip.driverId) {
+      throw new BadRequestException('Trip does not have an assigned driver');
+    }
+
+    // Validate trip status is active
+    if (
+      trip.status !== TripStatus.EN_ROUTE_TO_PICKUP &&
+      trip.status !== TripStatus.ARRIVED_AT_PICKUP &&
+      trip.status !== TripStatus.IN_PROGRESS
+    ) {
+      throw new BadRequestException(
+        `Trip must be in an active status to retrieve location`,
+      );
+    }
+
+    // Authorization check
+    if (trip.passengerId !== userId && trip.driverId !== userId) {
+      this.logger.warn('Unauthorized location access attempt', {
+        tripId,
+        userId,
+        passengerId: trip.passengerId,
+        driverId: trip.driverId,
+      });
+      throw new ForbiddenException(
+        'Only trip passenger or driver can view location',
+      );
+    }
+
+    // Fetch driver location from DriverService
+    const location = await this.driverServiceClient.getDriverLocation(
+      trip.driverId,
+    );
+
+    if (!location) {
+      throw new NotFoundException('No location available for this trip');
+    }
+
+    // Check location staleness (> 2 minutes)
+    const TWO_MINUTES_MS = 2 * 60 * 1000;
+    const locationAge = Date.now() - new Date(location.timestamp).getTime();
+
+    if (locationAge > TWO_MINUTES_MS) {
+      this.logger.warn('Location is stale', {
+        tripId,
+        driverId: trip.driverId,
+        locationAge: `${Math.floor(locationAge / 1000)}s`,
+      });
+      throw new NotFoundException(
+        'No recent location update available for this trip',
+      );
+    }
+
+    this.logger.log('Trip location retrieved', {
+      tripId,
+      userId,
+      driverId: trip.driverId,
+      locationAge: `${Math.floor(locationAge / 1000)}s`,
+    });
+
+    return {
+      tripId: trip.id,
+      driverId: trip.driverId,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      heading: location.heading,
+      speed: location.speed,
+      accuracy: location.accuracy,
+      timestamp: location.timestamp,
+    };
   }
 }

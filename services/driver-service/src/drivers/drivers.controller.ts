@@ -1,4 +1,14 @@
-import { Controller, Put, Get, Body, UseGuards, Logger, Query } from '@nestjs/common';
+import {
+  Controller,
+  Put,
+  Get,
+  Body,
+  UseGuards,
+  Logger,
+  Query,
+  Param,
+  NotFoundException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { DriversService } from './drivers.service';
 import { UpdateStatusDto } from './dto/update-status.dto';
@@ -76,6 +86,28 @@ export class DriversController {
   ): Promise<DriverLocationResponseDto> {
     this.logger.log(`Updating location for driver ${user.userId}`);
     return this.driversService.updateLocation(user.userId, updateLocationDto);
+  }
+
+  @Get(':driverId/location')
+  @UseGuards(JwtAuthGuard) // Any authenticated user can get location (for TripService integration)
+  @ApiOperation({ summary: 'Get driver location by ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Location retrieved successfully',
+    type: DriverLocationResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Location not found' })
+  @ApiResponse({ status: 503, description: 'Service unavailable' })
+  async getDriverLocation(
+    @Param('driverId') driverId: string,
+  ): Promise<DriverLocationResponseDto | null> {
+    this.logger.log(`Retrieving location for driver ${driverId}`);
+    const location = await this.driversService.getDriverLocation(driverId);
+    if (!location) {
+      throw new NotFoundException(`Location not found for driver ${driverId}`);
+    }
+    return location;
   }
 
   @Get('search')

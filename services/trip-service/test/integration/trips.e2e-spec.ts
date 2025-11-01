@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { TripStatus } from '@prisma/client';
+import * as nock from 'nock';
 
 describe('Trips (e2e)', () => {
   let app: INestApplication;
@@ -900,6 +901,225 @@ describe('Trips (e2e)', () => {
       expect(response.body).toHaveProperty('driver');
       expect(response.body.passenger).toBeDefined();
       expect(response.body.driver).toBeDefined();
+    });
+  });
+
+  describe('GET /trips/:id/current-location', () => {
+    let testPassenger, testDriver, testTripActive;
+
+    beforeEach(async () => {
+      // Create test users
+      testPassenger = await prisma.user.create({
+        data: {
+          id: 'passenger-location-123',
+          email: 'passenger-location@test.com',
+          passwordHash: 'hash',
+          role: 'PASSENGER',
+          firstName: 'Test',
+          lastName: 'Passenger',
+          phoneNumber: '+1234567890',
+        },
+      });
+
+      testDriver = await prisma.user.create({
+        data: {
+          id: 'driver-location-456',
+          email: 'driver-location@test.com',
+          passwordHash: 'hash',
+          role: 'DRIVER',
+          firstName: 'Test',
+          lastName: 'Driver',
+          phoneNumber: '+0987654321',
+        },
+      });
+
+      // Create test trip with active status
+      testTripActive = await prisma.trip.create({
+        data: {
+          passengerId: testPassenger.id,
+          driverId: testDriver.id,
+          pickupLatitude: 10.762622,
+          pickupLongitude: 106.660172,
+          pickupAddress: 'District 1, Ho Chi Minh City',
+          destinationLatitude: 10.823099,
+          destinationLongitude: 106.629662,
+          destinationAddress: 'Tan Binh District, Ho Chi Minh City',
+          estimatedFare: 2500,
+          estimatedDistance: 8.5,
+          status: TripStatus.EN_ROUTE_TO_PICKUP,
+        },
+      });
+    });
+
+    afterEach(() => {
+      nock.cleanAll();
+    });
+
+    it('should return 200 and location data for passenger viewing active trip', async () => {
+      const passengerToken = generateToken(testPassenger.id, 'PASSENGER');
+
+      // Mock DriverService response
+      nock('http://localhost:3003')
+        .get(`/api/drivers/${testDriver.id}/location`)
+        .reply(200, {
+          driverId: testDriver.id,
+          latitude: 10.762622,
+          longitude: 106.660172,
+          isOnline: true,
+          heading: 45,
+          speed: 30.5,
+          accuracy: 10.2,
+          timestamp: new Date().toISOString(),
+        });
+
+      const response = await request(app.getHttpServer())
+        .get(`/trips/${testTripActive.id}/current-location`)
+        .set('Authorization', `Bearer ${passengerToken}`)
+        .expect(200);
+
+      expect(response.body.tripId).toBe(testTripActive.id);
+      expect(response.body.driverId).toBe(testDriver.id);
+      expect(response.body.latitude).toBe(10.762622);
+      expect(response.body.longitude).toBe(106.660172);
+      expect(response.body.heading).toBe(45);
+      expect(response.body.speed).toBe(30.5);
+      expect(response.body.accuracy).toBe(10.2);
+      expect(response.body.timestamp).toBeDefined();
+    });
+
+    it('should return 200 and location data for driver viewing their active trip', async () => {
+      const driverToken = generateToken(testDriver.id, 'DRIVER');
+
+      // Mock DriverService response
+      nock('http://localhost:3003')
+        .get(`/api/drivers/${testDriver.id}/location`)
+        .reply(200, {
+          driverId: testDriver.id,
+          latitude: 10.762622,
+          longitude: 106.660172,
+          isOnline: true,
+          timestamp: new Date().toISOString(),
+        });
+
+      const response = await request(app.getHttpServer())
+        .get(`/trips/${testTripActive.id}/current-location`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .expect(200);
+
+      expect(response.body.tripId).toBe(testTripActive.id);
+      expect(response.body.driverId).toBe(testDriver.id);
+      expect(response.body.latitude).toBe(10.762622);
+      expect(response.body.longitude).toBe(106.660172);
+    });
+
+    it('should return 403 for unauthorized user', async () => {
+      const otherUserToken = generateToken('unauthorized-user', 'PASSENGER');
+
+      await request(app.getHttpServer())
+        .get(`/trips/${testTripActive.id}/current-location`)
+        .set('Authorization', `Bearer ${otherUserToken}`)
+        .expect(403);
+    });
+
+    it('should return 404 for non-existent trip', async () => {
+      const passengerToken = generateToken(testPassenger.id, 'PASSENGER');
+
+      await request(app.getHttpServer())
+        .get('/trips/non-existent-id/current-location')
+        .set('Authorization', `Bearer ${passengerToken}`)
+        .expect(404);
+    });
+
+    it('should return 401 for unauthenticated request', async () => {
+      await request(app.getHttpServer())
+        .get(`/trips/${testTripActive.id}/current-location`)
+        .expect(401);
+    });
+
+    it('should return 404 when driver location is not available', async () => {
+      const passengerToken = generateToken(testPassenger.id, 'PASSENGER');
+
+      // Mock DriverService 404 response
+      nock('http://localhost:3003')
+        .get(`/api/drivers/${testDriver.id}/location`)
+        .reply(404);
+
+      await request(app.getHttpServer())
+        .get(`/trips/${testTripActive.id}/current-location`)
+        .set('Authorization', `Bearer ${passengerToken}`)
+        .expect(404);
+    });
+
+    it('should return 404 when location is stale (> 2 minutes)', async () => {
+      const passengerToken = generateToken(testPassenger.id, 'PASSENGER');
+
+      // Mock DriverService response with old timestamp
+      const staleTimestamp = new Date(Date.now() - 3 * 60 * 1000); // 3 minutes ago
+      nock('http://localhost:3003')
+        .get(`/api/drivers/${testDriver.id}/location`)
+        .reply(200, {
+          driverId: testDriver.id,
+          latitude: 10.762622,
+          longitude: 106.660172,
+          isOnline: true,
+          timestamp: staleTimestamp.toISOString(),
+        });
+
+      await request(app.getHttpServer())
+        .get(`/trips/${testTripActive.id}/current-location`)
+        .set('Authorization', `Bearer ${passengerToken}`)
+        .expect(404);
+    });
+
+    it('should return 400 for trip without assigned driver', async () => {
+      const passengerToken = generateToken(testPassenger.id, 'PASSENGER');
+
+      // Create trip without driver
+      const tripWithoutDriver = await prisma.trip.create({
+        data: {
+          passengerId: testPassenger.id,
+          pickupLatitude: 10.762622,
+          pickupLongitude: 106.660172,
+          pickupAddress: 'District 1, Ho Chi Minh City',
+          destinationLatitude: 10.823099,
+          destinationLongitude: 106.629662,
+          destinationAddress: 'Tan Binh District, Ho Chi Minh City',
+          estimatedFare: 2500,
+          estimatedDistance: 8.5,
+          status: TripStatus.REQUESTED,
+        },
+      });
+
+      await request(app.getHttpServer())
+        .get(`/trips/${tripWithoutDriver.id}/current-location`)
+        .set('Authorization', `Bearer ${passengerToken}`)
+        .expect(400);
+    });
+
+    it('should return 400 for trip in inactive status', async () => {
+      const passengerToken = generateToken(testPassenger.id, 'PASSENGER');
+
+      // Create trip with inactive status
+      const inactiveTrip = await prisma.trip.create({
+        data: {
+          passengerId: testPassenger.id,
+          driverId: testDriver.id,
+          pickupLatitude: 10.762622,
+          pickupLongitude: 106.660172,
+          pickupAddress: 'District 1, Ho Chi Minh City',
+          destinationLatitude: 10.823099,
+          destinationLongitude: 106.629662,
+          destinationAddress: 'Tan Binh District, Ho Chi Minh City',
+          estimatedFare: 2500,
+          estimatedDistance: 8.5,
+          status: TripStatus.REQUESTED,
+        },
+      });
+
+      await request(app.getHttpServer())
+        .get(`/trips/${inactiveTrip.id}/current-location`)
+        .set('Authorization', `Bearer ${passengerToken}`)
+        .expect(400);
     });
   });
 });

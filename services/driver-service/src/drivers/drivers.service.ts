@@ -91,6 +91,29 @@ export class DriversService {
     }
   }
 
+  async getDriverLocation(driverId: string): Promise<DriverLocationResponseDto | null> {
+    // Validate UUID
+    if (!this.isValidUuid(driverId)) {
+      throw new Error('Invalid driver ID format');
+    }
+
+    const locationKey = `${this.LOCATION_KEY_PREFIX}${driverId}`;
+
+    try {
+      const locationJson = await this.redisService.get(locationKey);
+
+      if (!locationJson) {
+        return null; // No location available
+      }
+
+      const location = JSON.parse(locationJson);
+      return location;
+    } catch (error) {
+      this.logger.error('Failed to retrieve driver location', { driverId, error });
+      throw new ServiceUnavailableException('Location service temporarily unavailable');
+    }
+  }
+
   async updateLocation(
     driverId: string,
     dto: UpdateLocationDto,

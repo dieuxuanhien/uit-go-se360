@@ -23,6 +23,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/types/jwt.types';
 import { Get, Param } from '@nestjs/common';
 import { ApiParam } from '@nestjs/swagger';
+import { TripLocationDto } from './dto/trip-location.dto';
 
 @ApiTags('trips')
 @Controller('trips')
@@ -91,6 +92,42 @@ export class TripsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<TripDto> {
     return this.tripsService.getTripById(id, user.userId, user.role);
+  }
+
+  @Get(':id/current-location')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get current driver location for trip',
+    description:
+      'Retrieves real-time location of driver during active trip. Only accessible by trip passenger or assigned driver.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Trip ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Driver location retrieved successfully',
+    type: TripLocationDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - User not authorized for this trip',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Trip not found or no recent location available',
+  })
+  async getCurrentTripLocation(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<TripLocationDto> {
+    return this.tripsService.getCurrentTripLocation(id, user.userId);
   }
 
   @Post(':id/start-pickup')
