@@ -23,6 +23,17 @@ describe('Notifications (e2e)', () => {
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
+
+    // Clean up any leftover data from failed tests
+    try {
+      await prisma.$executeRawUnsafe(
+        `TRUNCATE TABLE "driver_notifications" CASCADE`,
+      );
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "trips" CASCADE`);
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "users" CASCADE`);
+    } catch (error) {
+      // Ignore errors during initial cleanup
+    }
   });
 
   afterAll(async () => {
@@ -30,16 +41,43 @@ describe('Notifications (e2e)', () => {
     await app.close();
   });
 
-  afterEach(async () => {
-    // Clean up test data
-    await prisma.driverNotification.deleteMany();
-    await prisma.trip.deleteMany();
-  });
-
   describe('GET /notifications', () => {
     const driverId = 'test-driver-id';
     const passengerId = 'test-passenger-id';
 
+    beforeEach(async () => {
+      // Clean up first to ensure fresh state using TRUNCATE CASCADE
+      await prisma.$executeRawUnsafe(
+        `TRUNCATE TABLE "driver_notifications" CASCADE`,
+      );
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "trips" CASCADE`);
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "users" CASCADE`);
+
+      // Create test users
+      await prisma.user.create({
+        data: {
+          id: passengerId,
+          email: 'passenger@test.com',
+          passwordHash: 'hashed-password',
+          role: 'PASSENGER',
+          firstName: 'Test',
+          lastName: 'Passenger',
+          phoneNumber: '+1234567890',
+        },
+      });
+
+      await prisma.user.create({
+        data: {
+          id: driverId,
+          email: 'driver@test.com',
+          passwordHash: 'hashed-password',
+          role: 'DRIVER',
+          firstName: 'Test',
+          lastName: 'Driver',
+          phoneNumber: '+1234567891',
+        },
+      });
+    });
     const createTestTrip = async (overrides = {}) => {
       return await prisma.trip.create({
         data: {

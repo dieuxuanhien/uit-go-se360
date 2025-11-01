@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Trip, TripStatus, Prisma, User } from '@prisma/client';
 import { TripsRepository } from './trips.repository';
@@ -201,5 +202,56 @@ export class TripsService {
       lastName: user.lastName,
       phoneNumber: user.phoneNumber,
     };
+  }
+
+  async startPickup(tripId: string, driverId: string): Promise<TripDto> {
+    // Fetch trip
+    const trip = await this.tripsRepository.findById(tripId);
+
+    // Validate existence
+    if (!trip) {
+      throw new NotFoundException(`Trip with ID ${tripId} not found`);
+    }
+
+    // Validate status
+    if (trip.status !== TripStatus.DRIVER_ASSIGNED) {
+      throw new BadRequestException(
+        `Cannot start pickup for trip in ${trip.status} status. Trip must be in DRIVER_ASSIGNED status.`,
+      );
+    }
+
+    // Validate driver authorization
+    if (trip.driverId !== driverId) {
+      this.logger.warn('Unauthorized pickup start attempt', {
+        tripId,
+        attemptedByDriver: driverId,
+        assignedDriver: trip.driverId,
+      });
+      throw new ForbiddenException(
+        'Only the assigned driver can start pickup for this trip',
+      );
+    }
+
+    // Update trip status
+    await this.tripsRepository.updateStatus(
+      tripId,
+      TripStatus.EN_ROUTE_TO_PICKUP,
+      new Date(),
+    );
+
+    this.logger.log('Trip pickup started', {
+      tripId,
+      driverId,
+      previousStatus: TripStatus.DRIVER_ASSIGNED,
+      newStatus: TripStatus.EN_ROUTE_TO_PICKUP,
+    });
+
+    // Fetch updated trip with users for response
+    const tripWithUsers = await this.tripsRepository.findByIdWithUsers(tripId);
+    if (!tripWithUsers) {
+      throw new InternalServerErrorException('Failed to fetch updated trip');
+    }
+
+    return this.mapToTripDto(tripWithUsers);
   }
 }

@@ -8,6 +8,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { TripDto } from '../../../src/trips/dto/trip.dto';
 import { UserDto } from '../../../src/trips/dto/user.dto';
@@ -78,6 +79,7 @@ describe('TripsService', () => {
       findById: jest.fn(),
       findByPassengerId: jest.fn(),
       findByIdWithUsers: jest.fn(),
+      updateStatus: jest.fn(),
     };
 
     const mockFareCalculator = {
@@ -244,7 +246,7 @@ describe('TripsService', () => {
       expect(result.passengerId).toBe('passenger-456');
       expect(result.passenger).toBeDefined();
       expect(result.passenger?.id).toBe('passenger-456');
-      expect(result.driver).toBeUndefined();
+      expect(result.driver).toBeNull();
     });
 
     it('should return trip details for authorized driver', async () => {
@@ -324,6 +326,112 @@ describe('TripsService', () => {
       expect(result).toHaveProperty('cancellationReason');
       expect(result).toHaveProperty('passenger');
       expect(result).toHaveProperty('driver');
+    });
+  });
+
+  describe('startPickup', () => {
+    const tripId = 'trip-123';
+    const driverId = 'driver-789';
+    const startedAt = new Date();
+
+    it('should successfully start pickup for valid trip and driver', async () => {
+      const assignedTrip = {
+        ...mockTrip,
+        driverId,
+        status: TripStatus.DRIVER_ASSIGNED,
+      };
+      const updatedTripWithUsers = {
+        ...assignedTrip,
+        status: TripStatus.EN_ROUTE_TO_PICKUP,
+        startedAt,
+        passenger: mockPassenger,
+        driver: mockDriver,
+      };
+
+      repository.findById.mockResolvedValue(assignedTrip as any);
+      repository.updateStatus.mockResolvedValue(undefined);
+      repository.findByIdWithUsers.mockResolvedValue(
+        updatedTripWithUsers as any,
+      );
+
+      const result = await service.startPickup(tripId, driverId);
+
+      expect(result.status).toBe(TripStatus.EN_ROUTE_TO_PICKUP);
+      expect(result.startedAt).toEqual(startedAt);
+      expect(result.id).toBe(tripId);
+      expect(result.driverId).toBe(driverId);
+      expect(repository.findById).toHaveBeenCalledWith(tripId);
+      expect(repository.updateStatus).toHaveBeenCalledWith(
+        tripId,
+        TripStatus.EN_ROUTE_TO_PICKUP,
+        expect.any(Date),
+      );
+      expect(repository.findByIdWithUsers).toHaveBeenCalledWith(tripId);
+    });
+
+    it('should throw NotFoundException if trip does not exist', async () => {
+      repository.findById.mockResolvedValue(null);
+
+      await expect(service.startPickup(tripId, driverId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(repository.findById).toHaveBeenCalledWith(tripId);
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if trip status is not DRIVER_ASSIGNED', async () => {
+      const invalidTrip = { ...mockTrip, status: TripStatus.REQUESTED };
+
+      repository.findById.mockResolvedValue(invalidTrip as any);
+
+      await expect(service.startPickup(tripId, driverId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException if different driver attempts to start', async () => {
+      const assignedTrip = {
+        ...mockTrip,
+        driverId: 'different-driver',
+        status: TripStatus.DRIVER_ASSIGNED,
+      };
+
+      repository.findById.mockResolvedValue(assignedTrip as any);
+
+      await expect(service.startPickup(tripId, driverId)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should call updateStatus with correct parameters', async () => {
+      const assignedTrip = {
+        ...mockTrip,
+        driverId,
+        status: TripStatus.DRIVER_ASSIGNED,
+      };
+      const updatedTripWithUsers = {
+        ...assignedTrip,
+        status: TripStatus.EN_ROUTE_TO_PICKUP,
+        startedAt,
+        passenger: mockPassenger,
+        driver: mockDriver,
+      };
+
+      repository.findById.mockResolvedValue(assignedTrip as any);
+      repository.updateStatus.mockResolvedValue(undefined);
+      repository.findByIdWithUsers.mockResolvedValue(
+        updatedTripWithUsers as any,
+      );
+
+      await service.startPickup(tripId, driverId);
+
+      expect(repository.updateStatus).toHaveBeenCalledWith(
+        tripId,
+        TripStatus.EN_ROUTE_TO_PICKUP,
+        expect.any(Date),
+      );
     });
   });
 });

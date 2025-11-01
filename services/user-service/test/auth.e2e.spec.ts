@@ -40,7 +40,7 @@ describe('Authentication (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clean database before each test
+    // Clean database before each test - delete users (driver profiles cascade)
     await databaseService.user.deleteMany();
   });
 

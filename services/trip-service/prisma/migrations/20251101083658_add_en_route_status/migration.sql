@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "TripStatus" ADD VALUE 'EN_ROUTE_TO_PICKUP';

@@ -61,9 +61,7 @@ export class TripsRepository {
     }
   }
 
-  async findByIdWithUsers(
-    id: string,
-  ): Promise<Prisma.TripGetPayload<{
+  async findByIdWithUsers(id: string): Promise<Prisma.TripGetPayload<{
     include: { passenger: true; driver: true };
   }> | null> {
     try {
@@ -87,6 +85,28 @@ export class TripsRepository {
       });
     } catch (error) {
       throw new InternalServerErrorException('Failed to fetch trips');
+    }
+  }
+
+  async updateStatus(
+    tripId: string,
+    status: TripStatus,
+    startedAt?: Date,
+  ): Promise<Trip> {
+    try {
+      const updateData: Prisma.TripUpdateInput = {
+        status,
+      };
+      if (startedAt) {
+        updateData.startedAt = startedAt;
+      }
+      return await this.prisma.trip.update({
+        where: { id: tripId },
+        data: updateData,
+      });
+    } catch (error) {
+      this.logger.error('Failed to update trip status', error);
+      throw new InternalServerErrorException('Failed to update trip status');
     }
   }
 }

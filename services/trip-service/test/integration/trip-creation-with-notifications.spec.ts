@@ -46,6 +46,15 @@ describe('Trip Creation with Driver Notifications (e2e)', () => {
 
     prisma = app.get<PrismaService>(PrismaService);
     driverServiceClient = app.get<DriverServiceClient>(DriverServiceClient);
+
+    // Clean up any leftover data from failed tests
+    try {
+      await prisma.driverNotification.deleteMany({});
+      await prisma.trip.deleteMany({});
+      await prisma.user.deleteMany({});
+    } catch (error) {
+      // Ignore errors during initial cleanup
+    }
   });
 
   afterAll(async () => {
@@ -54,19 +63,25 @@ describe('Trip Creation with Driver Notifications (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clean up test data before each test
-    await prisma.driverNotification.deleteMany();
-    await prisma.trip.deleteMany();
-  });
+    // Clean up first to ensure fresh state using TRUNCATE CASCADE
+    await prisma.$executeRawUnsafe(
+      `TRUNCATE TABLE "driver_notifications" CASCADE`,
+    );
+    await prisma.$executeRawUnsafe(`TRUNCATE TABLE "trips" CASCADE`);
+    await prisma.$executeRawUnsafe(`TRUNCATE TABLE "users" CASCADE`);
 
-  afterEach(async () => {
-    // Clean up test data
-    try {
-      await prisma.driverNotification.deleteMany();
-      await prisma.trip.deleteMany();
-    } catch (error) {
-      // Ignore cleanup errors
-    }
+    // Create test passenger user with the ID expected by the JWT guard
+    await prisma.user.create({
+      data: {
+        id: 'test-passenger-id',
+        email: 'passenger@test.com',
+        passwordHash: 'hashed-password',
+        role: 'PASSENGER',
+        firstName: 'Test',
+        lastName: 'Passenger',
+        phoneNumber: '+1234567890',
+      },
+    });
   });
 
   describe('POST /trips', () => {
@@ -166,8 +181,8 @@ describe('Trip Creation with Driver Notifications (e2e)', () => {
 
       const tripId = response.body.id;
 
-      // Wait for async notification processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for async notification processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Verify trip status is NO_DRIVERS_AVAILABLE
       const trip = await prisma.trip.findUnique({ where: { id: tripId } });
@@ -209,7 +224,7 @@ describe('Trip Creation with Driver Notifications (e2e)', () => {
       const tripId = response.body.id;
 
       // Wait for async processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       // When driver service consistently fails across all radii,
       // trip status becomes NO_DRIVERS_AVAILABLE (which is reasonable behavior)

@@ -322,6 +322,97 @@ curl -X GET "http://localhost:3002/trips/123e4567-e89b-12d3-a456-426614174000" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
+#### POST /trips/{trip_id}/start-pickup
+
+Mark that a driver is en route to the pickup location for an assigned trip.
+
+**Authentication Required:** Bearer token with DRIVER role
+
+**Authorization:** Only the assigned driver can start pickup for their trip
+
+**Path Parameters:**
+
+- `trip_id`: UUID - Trip identifier
+
+**Request Body:** None
+
+**Success Response (200 OK):**
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "passengerId": "550e8400-e29b-41d4-a716-446655440000",
+  "driverId": "660e8400-e29b-41d4-a716-446655440001",
+  "status": "EN_ROUTE_TO_PICKUP",
+  "pickupLatitude": 10.762622,
+  "pickupLongitude": 106.660172,
+  "pickupAddress": "District 1, Ho Chi Minh City",
+  "destinationLatitude": 10.823099,
+  "destinationLongitude": 106.629662,
+  "destinationAddress": "Tan Binh District, Ho Chi Minh City",
+  "estimatedFare": 2500,
+  "actualFare": null,
+  "estimatedDistance": 8.5,
+  "requestedAt": "2025-11-01T10:30:00Z",
+  "driverAssignedAt": "2025-11-01T10:31:15Z",
+  "startedAt": "2025-11-01T10:32:00Z",
+  "completedAt": null,
+  "cancelledAt": null,
+  "cancellationReason": null,
+  "passenger": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "passenger@example.com",
+    "role": "PASSENGER",
+    "firstName": "John",
+    "lastName": "Doe",
+    "phoneNumber": "+84901234567"
+  },
+  "driver": {
+    "id": "660e8400-e29b-41d4-a716-446655440001",
+    "email": "driver@example.com",
+    "role": "DRIVER",
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "phoneNumber": "+84909876543"
+  }
+}
+```
+
+**Error Responses:**
+
+- **400 Bad Request** - Trip status is not DRIVER_ASSIGNED
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Cannot start pickup for trip in {current_status} status. Trip must be in DRIVER_ASSIGNED status.",
+    "error": "Bad Request"
+  }
+  ```
+- **401 Unauthorized** - Missing or invalid JWT token
+- **403 Forbidden** - Different driver attempting to start trip
+  ```json
+  {
+    "statusCode": 403,
+    "message": "Only the assigned driver can start pickup for this trip",
+    "error": "Forbidden"
+  }
+  ```
+- **404 Not Found** - Trip does not exist
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Trip with ID {trip_id} not found",
+    "error": "Not Found"
+  }
+  ```
+
+**Example curl command:**
+
+```bash
+curl -X POST "http://localhost:3002/trips/123e4567-e89b-12d3-a456-426614174000/start-pickup" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
 ### Driver Notifications
 
 #### GET /notifications
