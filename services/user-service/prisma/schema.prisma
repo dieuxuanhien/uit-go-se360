@@ -24,6 +24,8 @@ model User {
   
   // Relations
   driverProfile DriverProfile?
+  passengerRatings Rating[] @relation("PassengerRatings")
+  driverRatings    Rating[] @relation("DriverRatings")
   
   @@index([email])
   @@index([role])
@@ -49,6 +51,26 @@ model DriverProfile {
   @@index([approvalStatus])
   @@index([vehiclePlate])
   @@map("driver_profiles")
+}
+
+model Rating {
+  id           String   @id @default(uuid())
+  tripId       String   @unique @map("trip_id")
+  passengerId  String   @map("passenger_id")
+  driverId     String   @map("driver_id")
+  stars        Int
+  comment      String?  @map("comment")
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  passenger User @relation("PassengerRatings", fields: [passengerId], references: [id], onDelete: Cascade)
+  driver    User @relation("DriverRatings", fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@index([tripId])
+  @@index([passengerId])
+  @@index([driverId])
+  @@index([createdAt])
+  @@index([stars])
+  @@map("ratings")
 }
 
 enum UserRole {

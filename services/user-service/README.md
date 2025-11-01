@@ -148,6 +148,80 @@ Authorization: Bearer <access_token>
 - `401 Unauthorized` - Missing or invalid JWT token
 - `404 Not Found` - Driver profile does not exist
 
+### Trip Ratings
+
+#### POST /trips/{tripId}/rating
+
+Submit a rating for a completed trip. Only the passenger who took the trip can rate it. Requires JWT authentication and PASSENGER role.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Path Parameters:**
+
+- `tripId`: UUID of the trip to rate
+
+**Request Body:**
+
+```json
+{
+  "stars": 5,
+  "comment": "Excellent driver! Very friendly and safe driving."
+}
+```
+
+**Request Schema:**
+
+- `stars`: integer, required, minimum: 1, maximum: 5
+- `comment`: string, optional, maximum length: 500 characters
+
+**Response:** `201 Created`
+
+```json
+{
+  "id": "rating-uuid",
+  "tripId": "trip-uuid",
+  "passengerId": "passenger-uuid",
+  "driverId": "driver-uuid",
+  "stars": 5,
+  "comment": "Excellent driver! Very friendly and safe driving.",
+  "createdAt": "2025-11-01T10:40:00.000Z"
+}
+```
+
+**Error Responses:**
+
+- `400 Bad Request` - Invalid input data (stars out of range, comment too long) or trip not completed
+- `401 Unauthorized` - Missing or invalid JWT token
+- `403 Forbidden` - User does not have PASSENGER role or is not the trip's passenger
+- `404 Not Found` - Trip does not exist
+- `409 Conflict` - Rating already exists for this trip
+
+**Validation Rules:**
+
+- Only passengers can submit ratings
+- Only the passenger who took the trip can rate it
+- Trip must be in COMPLETED status
+- Each trip can only be rated once
+- Stars must be integer between 1 and 5 inclusive
+- Comment is optional but limited to 500 characters if provided
+
+**Example curl command:**
+
+```bash
+curl -X POST \
+  http://localhost:3000/trips/123e4567-e89b-12d3-a456-426614174000/rating \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stars": 5,
+    "comment": "Great driver!"
+  }'
+```
+
 ### Driver Approval Status
 
 The `approvalStatus` field indicates the current state of a driver's profile:

@@ -908,6 +908,44 @@ paths:
                 $ref: '#/components/schemas/Error'
 
   /trips/{tripId}/rating:
+    get:
+      tags: [TripService]
+      summary: Get rating for a specific trip
+      operationId: getTripRating
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Rating retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rating'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - Not trip participant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Trip not found or no rating exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [TripService]
       summary: Passenger rates completed trip
@@ -1107,6 +1145,8 @@ paths:
    - Only passengers can rate (enforced by auth + business logic)
    - Can only rate completed trips
    - One rating per trip (enforced by unique database constraint)
+   - Passengers and drivers can view ratings for their trips (enforced by authorization)
+   - Driver view excludes passengerId for privacy protection
 
 10. **Health check endpoint:**
     - Required for ALB target group health checks
@@ -1158,6 +1198,20 @@ POST /trips/{tripId}/start
 # 5. Complete trip
 POST /trips/{tripId}/complete
 → 200 OK, Trip status=COMPLETED
+```
+
+**Example 3: Passenger views trip rating**
+
+```bash
+# 1. Get rating for completed trip (passenger view - includes all fields)
+GET /trips/{tripId}/rating
+Authorization: Bearer <passenger-token>
+→ 200 OK, returns {id, tripId, passengerId, driverId, stars, comment, createdAt}
+
+# 2. Get rating for completed trip (driver view - excludes passengerId)
+GET /trips/{tripId}/rating
+Authorization: Bearer <driver-token>
+→ 200 OK, returns {id, tripId, driverId, stars, comment, createdAt}
 ```
 
 **Service-to-Service Communication:**

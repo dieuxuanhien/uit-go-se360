@@ -326,6 +326,60 @@ sequenceDiagram
 
 ---
 
+## **8.5 Rating Retrieval Flow (GET /trips/{tripId}/rating)**
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant ALB
+    participant UserService
+    participant TripDB as Trip Database
+    participant RatingDB as Rating Database
+
+    Note over Client,RatingDB: Passenger or Driver Views Trip Rating
+
+    Client->>ALB: GET /trips/{tripId}/rating
+    ALB->>UserService: Forward request
+
+    UserService->>UserService: Validate JWT<br/>Extract userId, userRole
+
+    UserService->>TripDB: GET /api/trips/{tripId}<br/>(internal call)
+    TripDB-->>UserService: Trip details or 404
+
+    alt Trip not found
+        UserService-->>Client: 404 Not Found<br/>{"error": "Trip not found"}
+    else Trip exists
+        UserService->>UserService: Check authorization
+
+        alt PASSENGER and trip.passengerId !== userId
+            UserService-->>Client: 403 Forbidden<br/>{"error": "Not authorized"}
+        else DRIVER and trip.driverId !== userId
+            UserService-->>Client: 403 Forbidden<br/>{"error": "Not authorized"}
+        else Authorized
+            UserService->>RatingDB: SELECT * FROM ratings<br/>WHERE tripId = ?
+
+            alt No rating found
+                RatingDB-->>UserService: NULL
+                UserService-->>Client: 404 Not Found<br/>{"error": "No rating found"}
+            else Rating exists
+                RatingDB-->>UserService: Rating record
+
+                UserService->>UserService: Map to DTO
+
+                alt Requester is DRIVER
+                    Note right of UserService: Exclude passengerId<br/>from response
+                end
+
+                UserService-->>Client: 200 OK<br/>{rating object}
+
+                Note right of UserService: Log rating retrieval<br/>for audit trail
+            end
+        end
+    end
+```
+
+---
+
 ## **8.6 Trip Cancellation Flow (Error Handling)**
 
 ```mermaid
