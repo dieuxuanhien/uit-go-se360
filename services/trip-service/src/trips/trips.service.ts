@@ -185,6 +185,7 @@ export class TripsService {
       requestedAt: trip.requestedAt,
       driverAssignedAt: trip.driverAssignedAt,
       startedAt: trip.startedAt,
+      arrivedAt: trip.arrivedAt,
       completedAt: trip.completedAt,
       cancelledAt: trip.cancelledAt,
       cancellationReason: trip.cancellationReason,
@@ -236,7 +237,7 @@ export class TripsService {
     await this.tripsRepository.updateStatus(
       tripId,
       TripStatus.EN_ROUTE_TO_PICKUP,
-      new Date(),
+      { startedAt: new Date() },
     );
 
     this.logger.log('Trip pickup started', {
@@ -244,6 +245,57 @@ export class TripsService {
       driverId,
       previousStatus: TripStatus.DRIVER_ASSIGNED,
       newStatus: TripStatus.EN_ROUTE_TO_PICKUP,
+    });
+
+    // Fetch updated trip with users for response
+    const tripWithUsers = await this.tripsRepository.findByIdWithUsers(tripId);
+    if (!tripWithUsers) {
+      throw new InternalServerErrorException('Failed to fetch updated trip');
+    }
+
+    return this.mapToTripDto(tripWithUsers);
+  }
+
+  async arriveAtPickup(tripId: string, driverId: string): Promise<TripDto> {
+    // Fetch trip
+    const trip = await this.tripsRepository.findById(tripId);
+
+    // Validate existence
+    if (!trip) {
+      throw new NotFoundException(`Trip with ID ${tripId} not found`);
+    }
+
+    // Validate status
+    if (trip.status !== TripStatus.EN_ROUTE_TO_PICKUP) {
+      throw new BadRequestException(
+        `Cannot mark arrival for trip in ${trip.status} status. Trip must be in EN_ROUTE_TO_PICKUP status.`,
+      );
+    }
+
+    // Validate driver authorization
+    if (trip.driverId !== driverId) {
+      this.logger.warn('Unauthorized arrival attempt', {
+        tripId,
+        attemptedByDriver: driverId,
+        assignedDriver: trip.driverId,
+      });
+      throw new ForbiddenException(
+        'Only the assigned driver can mark arrival for this trip',
+      );
+    }
+
+    // Update trip status with arrivedAt timestamp
+    await this.tripsRepository.updateStatus(
+      tripId,
+      TripStatus.ARRIVED_AT_PICKUP,
+      { arrivedAt: new Date() },
+    );
+
+    this.logger.log('Driver arrived at pickup', {
+      tripId,
+      driverId,
+      previousStatus: TripStatus.EN_ROUTE_TO_PICKUP,
+      newStatus: TripStatus.ARRIVED_AT_PICKUP,
     });
 
     // Fetch updated trip with users for response

@@ -364,7 +364,7 @@ describe('TripsService', () => {
       expect(repository.updateStatus).toHaveBeenCalledWith(
         tripId,
         TripStatus.EN_ROUTE_TO_PICKUP,
-        expect.any(Date),
+        { startedAt: expect.any(Date) },
       );
       expect(repository.findByIdWithUsers).toHaveBeenCalledWith(tripId);
     });
@@ -430,8 +430,141 @@ describe('TripsService', () => {
       expect(repository.updateStatus).toHaveBeenCalledWith(
         tripId,
         TripStatus.EN_ROUTE_TO_PICKUP,
-        expect.any(Date),
+        { startedAt: expect.any(Date) },
       );
+    });
+  });
+
+  describe('arriveAtPickup', () => {
+    const tripId = 'trip-123';
+    const driverId = 'driver-789';
+    const arrivedAt = new Date();
+
+    it('should successfully mark arrival for valid trip and driver', async () => {
+      const enRouteTrip = {
+        ...mockTrip,
+        driverId,
+        status: TripStatus.EN_ROUTE_TO_PICKUP,
+      };
+      const updatedTripWithUsers = {
+        ...enRouteTrip,
+        status: TripStatus.ARRIVED_AT_PICKUP,
+        arrivedAt,
+        passenger: mockPassenger,
+        driver: mockDriver,
+      };
+
+      repository.findById.mockResolvedValue(enRouteTrip as any);
+      repository.updateStatus.mockResolvedValue(undefined);
+      repository.findByIdWithUsers.mockResolvedValue(
+        updatedTripWithUsers as any,
+      );
+
+      const result = await service.arriveAtPickup(tripId, driverId);
+
+      expect(result.status).toBe(TripStatus.ARRIVED_AT_PICKUP);
+      expect(result.arrivedAt).toEqual(arrivedAt);
+      expect(result.id).toBe(tripId);
+      expect(result.driverId).toBe(driverId);
+      expect(repository.findById).toHaveBeenCalledWith(tripId);
+      expect(repository.updateStatus).toHaveBeenCalledWith(
+        tripId,
+        TripStatus.ARRIVED_AT_PICKUP,
+        { arrivedAt: expect.any(Date) },
+      );
+      expect(repository.findByIdWithUsers).toHaveBeenCalledWith(tripId);
+    });
+
+    it('should throw NotFoundException if trip does not exist', async () => {
+      repository.findById.mockResolvedValue(null);
+
+      await expect(service.arriveAtPickup(tripId, driverId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(repository.findById).toHaveBeenCalledWith(tripId);
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if trip status is not EN_ROUTE_TO_PICKUP', async () => {
+      const invalidTrip = { ...mockTrip, status: TripStatus.DRIVER_ASSIGNED };
+
+      repository.findById.mockResolvedValue(invalidTrip as any);
+
+      await expect(service.arriveAtPickup(tripId, driverId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException if different driver attempts to mark arrival', async () => {
+      const enRouteTrip = {
+        ...mockTrip,
+        driverId: 'different-driver',
+        status: TripStatus.EN_ROUTE_TO_PICKUP,
+      };
+
+      repository.findById.mockResolvedValue(enRouteTrip as any);
+
+      await expect(service.arriveAtPickup(tripId, driverId)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should call updateStatus with correct parameters', async () => {
+      const enRouteTrip = {
+        ...mockTrip,
+        driverId,
+        status: TripStatus.EN_ROUTE_TO_PICKUP,
+      };
+      const updatedTripWithUsers = {
+        ...enRouteTrip,
+        status: TripStatus.ARRIVED_AT_PICKUP,
+        arrivedAt,
+        passenger: mockPassenger,
+        driver: mockDriver,
+      };
+
+      repository.findById.mockResolvedValue(enRouteTrip as any);
+      repository.updateStatus.mockResolvedValue(undefined);
+      repository.findByIdWithUsers.mockResolvedValue(
+        updatedTripWithUsers as any,
+      );
+
+      await service.arriveAtPickup(tripId, driverId);
+
+      expect(repository.updateStatus).toHaveBeenCalledWith(
+        tripId,
+        TripStatus.ARRIVED_AT_PICKUP,
+        { arrivedAt: expect.any(Date) },
+      );
+    });
+
+    it('should verify response includes updated status and timestamp', async () => {
+      const enRouteTrip = {
+        ...mockTrip,
+        driverId,
+        status: TripStatus.EN_ROUTE_TO_PICKUP,
+      };
+      const updatedTripWithUsers = {
+        ...enRouteTrip,
+        status: TripStatus.ARRIVED_AT_PICKUP,
+        arrivedAt,
+        passenger: mockPassenger,
+        driver: mockDriver,
+      };
+
+      repository.findById.mockResolvedValue(enRouteTrip as any);
+      repository.updateStatus.mockResolvedValue(undefined);
+      repository.findByIdWithUsers.mockResolvedValue(
+        updatedTripWithUsers as any,
+      );
+
+      const result = await service.arriveAtPickup(tripId, driverId);
+
+      expect(result.status).toBe(TripStatus.ARRIVED_AT_PICKUP);
+      expect(result.arrivedAt).toBeDefined();
+      expect(result.arrivedAt).toEqual(arrivedAt);
     });
   });
 });

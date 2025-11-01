@@ -45,6 +45,7 @@ enum TripStatus {
   NO_DRIVERS_AVAILABLE
   DRIVER_ASSIGNED
   EN_ROUTE_TO_PICKUP
+  ARRIVED_AT_PICKUP
   IN_PROGRESS
   COMPLETED
   CANCELLED
@@ -78,6 +79,7 @@ model Trip {
   requestedAt        DateTime  @default(now()) @map("requested_at")
   driverAssignedAt   DateTime? @map("driver_assigned_at")
   startedAt          DateTime? @map("started_at")
+  arrivedAt          DateTime? @map("arrived_at")
   completedAt        DateTime? @map("completed_at")
   cancelledAt        DateTime? @map("cancelled_at")
   cancellationReason String?   @map("cancellation_reason")

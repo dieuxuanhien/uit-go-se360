@@ -105,6 +105,13 @@ export class TripDto {
   startedAt: Date | null;
 
   @ApiPropertyOptional({
+    description: 'Driver arrived at pickup timestamp',
+    example: null,
+    nullable: true,
+  })
+  arrivedAt: Date | null;
+
+  @ApiPropertyOptional({
     description: 'Trip completed timestamp',
     example: null,
     nullable: true,

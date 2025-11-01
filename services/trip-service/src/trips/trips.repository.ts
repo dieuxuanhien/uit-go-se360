@@ -91,14 +91,17 @@ export class TripsRepository {
   async updateStatus(
     tripId: string,
     status: TripStatus,
-    startedAt?: Date,
+    timestamps?: Partial<{ startedAt: Date; arrivedAt: Date }>,
   ): Promise<Trip> {
     try {
       const updateData: Prisma.TripUpdateInput = {
         status,
       };
-      if (startedAt) {
-        updateData.startedAt = startedAt;
+      if (timestamps?.startedAt) {
+        updateData.startedAt = timestamps.startedAt;
+      }
+      if (timestamps?.arrivedAt) {
+        updateData.arrivedAt = timestamps.arrivedAt;
       }
       return await this.prisma.trip.update({
         where: { id: tripId },
