@@ -6,6 +6,7 @@ import {
 import { Trip, TripStatus } from '@prisma/client';
 import { TripsRepository } from './trips.repository';
 import { FareCalculatorService } from '../fare/fare-calculator.service';
+import { DriverNotificationService } from '../notifications/driver-notification.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { TripResponseDto } from './dto/trip-response.dto';
 
@@ -16,6 +17,7 @@ export class TripsService {
   constructor(
     private readonly tripsRepository: TripsRepository,
     private readonly fareCalculator: FareCalculatorService,
+    private readonly driverNotificationService: DriverNotificationService,
   ) {}
 
   async createTrip(
@@ -49,11 +51,40 @@ export class TripsService {
         status: TripStatus.REQUESTED,
       });
 
-      this.logger.log('Trip created', {
+      this.logger.log('Trip created, searching for drivers...', {
         tripId: trip.id,
         passengerId,
         distance,
         estimatedFare,
+      });
+
+      // Find and notify nearby drivers (async)
+      // This runs in background - we don't wait for it to complete
+      setImmediate(async () => {
+        try {
+          const result =
+            await this.driverNotificationService.findAndNotifyDrivers(
+              trip.id,
+              dto.pickupLatitude,
+              dto.pickupLongitude,
+            );
+
+          if (result.driversNotified > 0) {
+            this.logger.log('Drivers notified successfully', {
+              tripId: trip.id,
+              driversNotified: result.driversNotified,
+            });
+          } else {
+            this.logger.warn('No drivers available for trip', {
+              tripId: trip.id,
+            });
+          }
+        } catch (error) {
+          this.logger.error('Failed to notify drivers', {
+            tripId: trip.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
       });
 
       return this.mapToDto(trip);

@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { Trip, TripStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -17,6 +21,8 @@ export interface CreateTripData {
 
 @Injectable()
 export class TripsRepository {
+  private readonly logger = new Logger(TripsRepository.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateTripData): Promise<Trip> {
@@ -37,6 +43,7 @@ export class TripsRepository {
         },
       });
     } catch (error) {
+      this.logger.error('Failed to create trip in database', error);
       throw new InternalServerErrorException(
         'Failed to create trip in database',
       );

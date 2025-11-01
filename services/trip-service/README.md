@@ -262,6 +262,113 @@ pnpm test:cov
 pnpm test:watch
 ```
 
+## Driver Notification Flow
+
+When a passenger creates a trip request, the Trip Service automatically searches for nearby available drivers and notifies them. This enables rapid driver-passenger matching for ride requests.
+
+### Workflow
+
+1. **Trip Creation**: Passenger submits POST /trips with pickup and destination coordinates
+2. **Initial Search**: System searches for online drivers within 5km radius
+3. **Radius Expansion**: If no drivers found, expands search to 10km, then 15km
+4. **Driver Selection**: Selects up to 5 nearest drivers (configurable)
+5. **Notification Creation**: Creates notification records with status = 'PENDING'
+6. **Status Update**: Trip status changes to 'FINDING_DRIVER'
+7. **Response**: Returns trip details to passenger immediately
+
+### Trip Status Transitions
+
+```
+REQUESTED → FINDING_DRIVER → DRIVER_ASSIGNED → IN_PROGRESS → COMPLETED
+                ↓
+         NO_DRIVERS_AVAILABLE → CANCELLED
+```
+
+**Status Definitions:**
+
+- `REQUESTED`: Initial state after trip creation
+- `FINDING_DRIVER`: System is searching for and notifying nearby drivers
+- `NO_DRIVERS_AVAILABLE`: No drivers found within maximum search radius (15km)
+- `DRIVER_ASSIGNED`: A driver has accepted the trip
+- `IN_PROGRESS`: Trip is active (driver picked up passenger)
+- `COMPLETED`: Trip finished successfully
+- `CANCELLED`: Trip was cancelled by passenger or system
+
+### Radius Expansion Logic
+
+The system uses an intelligent radius expansion strategy to balance speed and availability:
+
+1. **First Attempt (5km)**: Fast, local drivers - typical urban scenario
+2. **Second Attempt (10km)**: Medium range - suburban areas
+3. **Final Attempt (15km)**: Maximum range - rural or low-density areas
+
+If no drivers found after 15km search, trip status becomes `NO_DRIVERS_AVAILABLE`.
+
+### Configuration
+
+Driver notification behavior is customizable via environment variables:
+
+| Variable                              | Description                    | Default               |
+| ------------------------------------- | ------------------------------ | --------------------- |
+| `DRIVER_SEARCH_INITIAL_RADIUS_KM`     | Initial search radius          | 5 km                  |
+| `DRIVER_SEARCH_SECOND_RADIUS_KM`      | Second attempt radius          | 10 km                 |
+| `DRIVER_SEARCH_FINAL_RADIUS_KM`       | Maximum search radius          | 15 km                 |
+| `DRIVER_NOTIFICATION_LIMIT`           | Max drivers to notify per trip | 5                     |
+| `DRIVER_SERVICE_URL`                  | Driver service base URL        | http://localhost:3003 |
+| `DRIVER_NOTIFICATION_TIMEOUT_SECONDS` | Timeout for driver response    | 15 seconds            |
+| `SERVICE_JWT_TOKEN`                   | JWT for inter-service auth     | (optional)            |
+
+### Inter-Service Communication
+
+- **Protocol**: HTTP REST API
+- **Endpoint**: `GET /drivers/search`
+- **Authentication**: Bearer token (service JWT) if configured
+- **Timeout**: 5 seconds
+- **Retry Logic**: Up to 2 retries on transient failures
+- **Error Handling**: Graceful degradation if Driver Service unavailable
+
+### Performance Characteristics
+
+- **Search Speed**: < 3 seconds typical, includes all radius attempts
+- **Notification Limit**: 5 drivers maximum to avoid system overload
+- **Async Processing**: Driver search happens in background, trip creation returns immediately
+- **Transaction Safety**: Notification creation + trip status update are atomic
+
+### Example Scenario
+
+**Urban Trip Request:**
+
+```
+1. Passenger requests trip in District 1, HCMC
+2. System finds 8 drivers within 5km
+3. Selects 5 nearest drivers (sorted by distance)
+4. Creates 5 notification records (status=PENDING)
+5. Updates trip status to FINDING_DRIVER
+6. Returns trip details to passenger
+7. Drivers receive notifications on mobile app
+```
+
+**Rural Trip Request:**
+
+```
+1. Passenger requests trip in rural area
+2. No drivers within 5km → expands to 10km
+3. No drivers within 10km → expands to 15km
+4. Finds 2 drivers at 12km distance
+5. Creates 2 notification records
+6. Updates trip status to FINDING_DRIVER
+```
+
+**No Drivers Available:**
+
+```
+1. Passenger requests trip in remote area
+2. Searches 5km, 10km, 15km → no drivers found
+3. Updates trip status to NO_DRIVERS_AVAILABLE
+4. Returns trip with error indication
+5. Passenger notified to try again later
+```
+
 ## Environment Variables
 
 | Variable       | Description                                    | Default     | Required |

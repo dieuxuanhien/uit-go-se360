@@ -58,6 +58,7 @@ export class TripsController {
     @CurrentUser() user: JwtPayload,
     @Body() createTripDto: CreateTripDto,
   ): Promise<TripResponseDto> {
-    return this.tripsService.createTrip(user.userId, createTripDto);
+    console.log('User from JWT:', user);
+    return this.tripsService.createTrip(user.sub, createTripDto);
   }
 }

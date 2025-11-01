@@ -30,7 +30,7 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   const port = process.env.DRIVER_SERVICE_PORT || 3003;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   Logger.log(`Driver Service is running on http://localhost:${port}`, 'Bootstrap');
   Logger.log(`Swagger documentation available at http://localhost:${port}/api`, 'Bootstrap');
 }

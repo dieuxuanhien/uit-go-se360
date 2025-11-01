@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TripsService } from '../../../src/trips/trips.service';
 import { TripsRepository } from '../../../src/trips/trips.repository';
 import { FareCalculatorService } from '../../../src/fare/fare-calculator.service';
+import { DriverNotificationService } from '../../../src/notifications/driver-notification.service';
 import { TripStatus } from '@prisma/client';
 import { InternalServerErrorException } from '@nestjs/common';
 
@@ -46,11 +47,19 @@ describe('TripsService', () => {
       calculateEstimatedFare: jest.fn(),
     };
 
+    const mockDriverNotificationService = {
+      findAndNotifyDrivers: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TripsService,
         { provide: TripsRepository, useValue: mockRepository },
         { provide: FareCalculatorService, useValue: mockFareCalculator },
+        {
+          provide: DriverNotificationService,
+          useValue: mockDriverNotificationService,
+        },
       ],
     }).compile();
 
