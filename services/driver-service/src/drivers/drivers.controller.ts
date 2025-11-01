@@ -111,7 +111,6 @@ export class DriversController {
   }
 
   @Get('search')
-  @UseGuards(JwtAuthGuard) // Any authenticated user can search
   @ApiOperation({ summary: 'Search for nearby drivers' })
   @ApiResponse({
     status: 200,
@@ -119,7 +118,6 @@ export class DriversController {
     type: SearchNearbyDriversResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Invalid coordinates or radius' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 503, description: 'Service unavailable' })
   async searchNearbyDrivers(
     @Query() searchDto: SearchNearbyDriversDto,

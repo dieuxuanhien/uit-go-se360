@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TripStatus } from '@prisma/client';
-import { UserDto } from './user.dto';
 
 export class TripDto {
   @ApiProperty({
@@ -138,18 +137,4 @@ export class TripDto {
     nullable: true,
   })
   cancellationReason: string | null;
-
-  @ApiPropertyOptional({
-    description: 'Passenger user details',
-    type: UserDto,
-    nullable: true,
-  })
-  passenger?: UserDto;
-
-  @ApiPropertyOptional({
-    description: 'Driver user details',
-    type: UserDto,
-    nullable: true,
-  })
-  driver: UserDto | null;
 }

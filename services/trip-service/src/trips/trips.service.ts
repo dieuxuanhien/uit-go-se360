@@ -6,14 +6,13 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { Trip, TripStatus, Prisma, User } from '@prisma/client';
+import { Trip, TripStatus } from '@prisma/client';
 import { TripsRepository } from './trips.repository';
 import { FareCalculatorService } from '../fare/fare-calculator.service';
 import { DriverNotificationService } from '../notifications/driver-notification.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { TripResponseDto } from './dto/trip-response.dto';
 import { TripDto } from './dto/trip.dto';
-import { UserDto } from './dto/user.dto';
 import { TripLocationDto } from './dto/trip-location.dto';
 import { DriverServiceClient } from '../integrations/driver-service.client';
 import { TripStateMachine } from './trip-state-machine';
@@ -137,7 +136,7 @@ export class TripsService {
     userId: string,
     userRole: string,
   ): Promise<TripDto> {
-    const trip = await this.tripsRepository.findByIdWithUsers(tripId);
+    const trip = await this.tripsRepository.findById(tripId);
 
     if (!trip) {
       throw new NotFoundException(`Trip with ID ${tripId} not found`);
@@ -169,9 +168,7 @@ export class TripsService {
     return this.mapToTripDto(trip);
   }
 
-  private mapToTripDto(
-    trip: Prisma.TripGetPayload<{ include: { passenger: true; driver: true } }>,
-  ): TripDto {
+  private mapToTripDto(trip: Trip): TripDto {
     return {
       id: trip.id,
       passengerId: trip.passengerId,
@@ -194,19 +191,6 @@ export class TripsService {
       completedAt: trip.completedAt,
       cancelledAt: trip.cancelledAt,
       cancellationReason: trip.cancellationReason,
-      passenger: trip.passenger ? this.mapUserToDto(trip.passenger) : undefined,
-      driver: trip.driver ? this.mapUserToDto(trip.driver) : null,
-    };
-  }
-
-  private mapUserToDto(user: User): UserDto {
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      phoneNumber: user.phoneNumber,
     };
   }
 
@@ -253,12 +237,12 @@ export class TripsService {
     });
 
     // Fetch updated trip with users for response
-    const tripWithUsers = await this.tripsRepository.findByIdWithUsers(tripId);
-    if (!tripWithUsers) {
+    const updatedTrip = await this.tripsRepository.findById(tripId);
+    if (!updatedTrip) {
       throw new InternalServerErrorException('Failed to fetch updated trip');
     }
 
-    return this.mapToTripDto(tripWithUsers);
+    return this.mapToTripDto(updatedTrip);
   }
 
   async arriveAtPickup(tripId: string, driverId: string): Promise<TripDto> {
@@ -304,12 +288,12 @@ export class TripsService {
     });
 
     // Fetch updated trip with users for response
-    const tripWithUsers = await this.tripsRepository.findByIdWithUsers(tripId);
-    if (!tripWithUsers) {
+    const updatedTrip = await this.tripsRepository.findById(tripId);
+    if (!updatedTrip) {
       throw new InternalServerErrorException('Failed to fetch updated trip');
     }
 
-    return this.mapToTripDto(tripWithUsers);
+    return this.mapToTripDto(updatedTrip);
   }
 
   async startActiveTrip(tripId: string, driverId: string): Promise<TripDto> {
@@ -353,12 +337,12 @@ export class TripsService {
     });
 
     // Fetch updated trip with users for response
-    const tripWithUsers = await this.tripsRepository.findByIdWithUsers(tripId);
-    if (!tripWithUsers) {
+    const updatedTrip = await this.tripsRepository.findById(tripId);
+    if (!updatedTrip) {
       throw new InternalServerErrorException('Failed to fetch updated trip');
     }
 
-    return this.mapToTripDto(tripWithUsers);
+    return this.mapToTripDto(updatedTrip);
   }
 
   async getCurrentTripLocation(
@@ -489,11 +473,11 @@ export class TripsService {
     });
 
     // 8. Return DTO
-    const tripWithUsers = await this.tripsRepository.findByIdWithUsers(tripId);
-    if (!tripWithUsers) {
+    const finalTrip = await this.tripsRepository.findById(tripId);
+    if (!finalTrip) {
       throw new InternalServerErrorException('Failed to fetch completed trip');
     }
 
-    return this.mapToTripDto(tripWithUsers);
+    return this.mapToTripDto(finalTrip);
   }
 }

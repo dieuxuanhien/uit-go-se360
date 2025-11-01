@@ -1,6 +1,6 @@
 import { Injectable, Logger, ConflictException } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
-import { Rating, Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { Rating } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 /**
@@ -11,14 +11,20 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 export class RatingsRepository {
   private readonly logger = new Logger(RatingsRepository.name);
 
-  constructor(private readonly prisma: DatabaseService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Create a new rating
    * @param data Rating creation data
    * @returns Created rating
    */
-  async create(data: any): Promise<Rating> {
+  async create(data: {
+    tripId: string;
+    passengerId: string;
+    driverId: string;
+    stars: number;
+    comment?: string;
+  }): Promise<Rating> {
     try {
       const rating = await this.prisma.rating.create({
         data,

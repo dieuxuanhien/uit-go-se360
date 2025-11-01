@@ -5,6 +5,7 @@ import { HealthModule } from './health/health.module';
 import { FareModule } from './fare/fare.module';
 import { TripsModule } from './trips/trips.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { RatingsModule } from './ratings/ratings.module';
 import { validationSchema } from './config/validation.schema';
 
 @Module({
@@ -19,6 +20,7 @@ import { validationSchema } from './config/validation.schema';
     FareModule,
     TripsModule,
     NotificationsModule,
+    RatingsModule,
   ],
 })
 export class AppModule {}

@@ -21,6 +21,6 @@ import driverNotificationConfig from '../config/driver-notification.config';
   ],
   controllers: [TripsController],
   providers: [TripsService, TripsRepository, DriverServiceClient, Reflector],
-  exports: [TripsService],
+  exports: [TripsService, TripsRepository],
 })
 export class TripsModule {}

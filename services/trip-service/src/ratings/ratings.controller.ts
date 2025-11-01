@@ -4,24 +4,28 @@ import {
   Get,
   Param,
   Body,
-  UseGuards,
-  ForbiddenException,
   HttpCode,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
-import { User } from '@prisma/client';
-import { UserRole } from '@uit-go/shared-types';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import {
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RatingsService } from './ratings.service';
 import { CreateRatingDto } from './dto/create-rating.dto';
 import { RatingDto } from './dto/rating.dto';
+import { JwtPayload } from '../common/types/jwt.types';
 
 /**
  * Ratings Controller
  * Handles HTTP requests for trip ratings
  */
 @Controller('trips/:tripId/rating')
+@ApiBearerAuth()
 export class RatingsController {
   constructor(private readonly ratingsService: RatingsService) {}
 
@@ -59,25 +63,15 @@ export class RatingsController {
   @HttpCode(201)
   async submitRating(
     @Param('tripId') tripId: string,
-    @CurrentUser() user: any,
-    @Body() createRatingDto: CreateRatingDto,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateRatingDto,
   ): Promise<RatingDto> {
-    // Verify user is passenger
-    if (user.role !== UserRole.PASSENGER) {
-      throw new ForbiddenException('Only passengers can rate trips');
-    }
-
-    return this.ratingsService.submitRating(
-      tripId,
-      user.userId,
-      createRatingDto,
-    );
+    return this.ratingsService.submitRating(tripId, user.userId, dto);
   }
 
   @ApiOperation({
     summary: 'Get trip rating',
-    description:
-      'Retrieve rating for a specific trip. Passengers can view ratings they submitted; drivers can view ratings for their trips.',
+    description: 'Retrieve rating for a specific trip.',
   })
   @ApiParam({
     name: 'tripId',
@@ -102,12 +96,8 @@ export class RatingsController {
   @UseGuards(JwtAuthGuard)
   async getRating(
     @Param('tripId') tripId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
   ): Promise<RatingDto> {
-    return this.ratingsService.getRatingByTripId(
-      tripId,
-      user.userId,
-      user.role,
-    );
+    return this.ratingsService.getRating(tripId, user.userId);
   }
 }

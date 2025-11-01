@@ -14,31 +14,6 @@ model PrismaHealthCheck {
   @@map("_prisma_health_check")
 }
 
-enum UserRole {
-  PASSENGER
-  DRIVER
-}
-
-model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         UserRole
-  firstName    String   @map("first_name")
-  lastName     String   @map("last_name")
-  phoneNumber  String   @map("phone_number")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  passengerTrips Trip[] @relation("PassengerTrips")
-  driverTrips    Trip[] @relation("DriverTrips")
-
-  @@index([email])
-  @@index([role])
-  @@map("users")
-}
-
 enum TripStatus {
   REQUESTED
   FINDING_DRIVER
@@ -88,9 +63,6 @@ model Trip {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  passenger User   @relation("PassengerTrips", fields: [passengerId], references: [id])
-  driver    User?  @relation("DriverTrips", fields: [driverId], references: [id])
-
   driverNotifications DriverNotification[]
 
   @@index([passengerId])
@@ -122,4 +94,21 @@ model DriverNotification {
   @@index([tripId, status])
   @@index([driverId, status])
   @@map("driver_notifications")
+}
+
+model Rating {
+  id          String   @id @default(uuid())
+  tripId      String   @unique @map("trip_id")
+  passengerId String   @map("passenger_id")
+  driverId    String   @map("driver_id")
+  stars       Int
+  comment     String?  @map("comment")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([tripId])
+  @@index([passengerId])
+  @@index([driverId])
+  @@index([createdAt])
+  @@index([stars])
+  @@map("ratings")
 }
