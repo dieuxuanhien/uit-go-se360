@@ -20,7 +20,7 @@ COPY packages ./packages
 
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile 
 
 # Build shared packages
 RUN cd packages/shared-types && pnpm build
@@ -36,7 +36,7 @@ COPY services/trip-service/nest-cli.json ./
 
 # Build the service
 RUN pnpm build
-
+RUN pnpm store prune
 # Runtime stage
 FROM node:20-alpine
 
