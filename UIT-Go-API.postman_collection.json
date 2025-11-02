@@ -517,12 +517,7 @@
           "name": "Get Driver Location by ID",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{passengerToken}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/drivers/{{driverId}}/location",
               "host": ["{{baseUrl}}"],

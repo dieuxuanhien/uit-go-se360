@@ -139,4 +139,49 @@ export class DriverServiceClient {
       throw new ServiceUnavailableException('Failed to update driver status');
     }
   }
+
+  async getDriverLocation(driverId: string): Promise<any> {
+    const url = `${this.config.driverServiceUrl}/drivers/${driverId}/location`;
+
+    this.logger.log('Getting driver location', { driverId, url });
+
+    try {
+      // No authorization header needed for this endpoint
+      const response = await firstValueFrom(
+        this.httpService.get(url).pipe(
+          timeout(this.config.requestTimeoutMs),
+          retry(this.config.maxRetries),
+          catchError((error: AxiosError) => {
+            this.logger.error('Failed to get driver location', {
+              driverId,
+              url,
+              error: error.message,
+              statusCode: error.response?.status,
+              data: error.response?.data,
+            });
+            throw new ServiceUnavailableException(
+              `DriverService unavailable: ${error.message}`,
+            );
+          }),
+        ),
+      );
+
+      this.logger.log('Driver location retrieved successfully', {
+        driverId,
+      });
+
+      return response.data;
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) {
+        throw error;
+      }
+
+      this.logger.error('Unexpected error getting driver location', {
+        driverId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      throw new ServiceUnavailableException('Failed to get driver location');
+    }
+  }
 }

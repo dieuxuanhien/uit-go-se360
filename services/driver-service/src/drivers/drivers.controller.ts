@@ -89,14 +89,12 @@ export class DriversController {
   }
 
   @Get(':driverId/location')
-  @UseGuards(JwtAuthGuard) // Any authenticated user can get location (for TripService integration)
   @ApiOperation({ summary: 'Get driver location by ID' })
   @ApiResponse({
     status: 200,
     description: 'Location retrieved successfully',
     type: DriverLocationResponseDto,
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Location not found' })
   @ApiResponse({ status: 503, description: 'Service unavailable' })
   async getDriverLocation(

@@ -14,7 +14,7 @@ import { CreateTripDto } from './dto/create-trip.dto';
 import { TripResponseDto } from './dto/trip-response.dto';
 import { TripDto } from './dto/trip.dto';
 import { TripLocationDto } from './dto/trip-location.dto';
-import { DriverServiceClient } from '../integrations/driver-service.client';
+import { DriverServiceClient } from '../drivers/driver-service.client';
 import { TripStateMachine } from './trip-state-machine';
 
 @Injectable()

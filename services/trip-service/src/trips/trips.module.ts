@@ -7,7 +7,7 @@ import { FareModule } from '../fare/fare.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { Reflector } from '@nestjs/core';
-import { DriverServiceClient } from '../integrations/driver-service.client';
+import { DriverServiceClient } from '../drivers/driver-service.client';
 import { HttpModule } from '@nestjs/axios';
 import driverNotificationConfig from '../config/driver-notification.config';
 
