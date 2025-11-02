@@ -55,6 +55,8 @@ export class DriversService {
         this.logger.log(`Driver ${driverId} is now ONLINE`);
       } else {
         await this.redisService.srem(this.ONLINE_DRIVERS_SET, driverId);
+        // Remove from geospatial index when going offline
+        await this.redisService.zrem(this.GEO_INDEX_KEY, driverId);
         this.logger.log(`Driver ${driverId} is now OFFLINE`);
       }
 
