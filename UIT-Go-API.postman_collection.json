@@ -29,6 +29,11 @@
       "key": "notificationId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "driverId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -340,6 +345,42 @@
               }
             }
           ]
+        },
+        {
+          "name": "Get Driver Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{driverToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/driver-profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "driver-profile"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has driver profile\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.vehicleMake).to.be.a('string');",
+                  "    pm.expect(jsonData.vehiclePlate).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ]
     },
@@ -391,6 +432,42 @@
           ]
         },
         {
+          "name": "Get Driver Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{driverToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/drivers/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["drivers", "status"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has driver status\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.driverId).to.be.a('string');",
+                  "    pm.expect(jsonData).to.have.property('isOnline');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
           "name": "Update Driver Location",
           "request": {
             "method": "PUT",
@@ -429,6 +506,43 @@
                   "    pm.expect(jsonData.longitude).to.eql(106.660172);",
                   "    pm.expect(jsonData.isOnline).to.eql(true);",
                   "    pm.expect(jsonData).to.have.property('timestamp');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Driver Location by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{passengerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/drivers/{{driverId}}/location",
+              "host": ["{{baseUrl}}"],
+              "path": ["drivers", "{{driverId}}", "location"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Returns driver location\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('latitude');",
+                  "    pm.expect(jsonData).to.have.property('longitude');",
+                  "    pm.expect(jsonData.driverId).to.be.a('string');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -576,6 +690,42 @@
           ]
         },
         {
+          "name": "Get Current Driver Location",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{passengerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/trips/{{tripId}}/current-location",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips", "{{tripId}}", "current-location"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Returns driver location\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('latitude');",
+                  "    pm.expect(jsonData).to.have.property('longitude');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
           "name": "Get Driver Notifications",
           "request": {
             "method": "GET",
@@ -648,6 +798,111 @@
                   "        pm.expect(pm.response.code).to.be.oneOf([200, 409]);",
                   "    });",
                   "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Decline Trip Notification (Driver)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{driverToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/decline",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}", "decline"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Notification declined\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('DECLINED');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Pickup (Driver)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{driverToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/trips/{{tripId}}/start-pickup",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips", "{{tripId}}", "start-pickup"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Pickup started\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('PICKUP_IN_PROGRESS');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Arrive at Pickup (Driver)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{driverToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/trips/{{tripId}}/arrive-pickup",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips", "{{tripId}}", "arrive-pickup"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Arrived at pickup\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('ARRIVED_AT_PICKUP');",
+                  "});"
                 ],
                 "type": "text/javascript"
               }
@@ -761,6 +1016,42 @@
                   "    var jsonData = pm.response.json();",
                   "    pm.expect(jsonData.stars).to.eql(5);",
                   "    pm.expect(jsonData.comment).to.eql('Great service!');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Trip Rating",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{passengerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/trips/{{tripId}}/rating",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips", "{{tripId}}", "rating"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Returns rating data\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('stars');",
+                  "    pm.expect(jsonData).to.have.property('passengerId');",
                   "});"
                 ],
                 "type": "text/javascript"
