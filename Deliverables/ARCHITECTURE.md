@@ -257,21 +257,20 @@ sequenceDiagram
 
 ### 4.2 Database Read Scaling (ADR-002)
 
-```
-              ┌──────────────┐
-              │  Application │
-              └──────┬───────┘
-                     │
-        ┌────────────┼────────────┐
-        │ WRITE      │ READ       │ READ
-        ▼            ▼            ▼
-   ┌─────────┐  ┌─────────┐  ┌─────────┐
-   │ Primary │  │ Replica │  │ Replica │
-   │   DB    │  │   #1    │  │   #2    │
-   └─────────┘  └─────────┘  └─────────┘
-        │            ▲            ▲
-        └────────────┴────────────┘
-         Async Replication (<1s lag)
+```mermaid
+flowchart TD
+    App[Application]
+    
+    App -->|WRITE| Primary
+    App -->|READ| Rep1
+    App -->|READ| Rep2
+    
+    Primary[(Primary DB)]
+    Rep1[(Replica 1)]
+    Rep2[(Replica 2)]
+    
+    Primary -.->|Async Replication<br>less than 1s lag| Rep1
+    Primary -.->|Async Replication<br>less than 1s lag| Rep2
 ```
 
 **Configuration:**
@@ -280,6 +279,30 @@ sequenceDiagram
 - Replication lag: <100ms typical
 
 ### 4.3 Distributed Caching (ADR-003)
+
+
+```mermaid
+flowchart TD
+    App[NestJS Application]
+    
+    App -->|WRITE 20%| Primary
+    App -->|READ 40%| Rep1
+    App -->|READ 40%| Rep2
+    
+    Primary[(Primary DB<br>Port 5432<br>R/W)]
+    Rep1[(Replica 1<br>Port 5433<br>Read-Only)]
+    Rep2[(Replica 2<br>Port 5434<br>Read-Only)]
+    
+    Primary -.->|WAL Streaming<br>Async| Rep1
+    Primary -.->|WAL Streaming<br>Async| Rep2
+    
+    Note[Less than 100ms lag typical]
+    
+    style Primary fill:#c8e6c9,stroke:#388e3c
+    style Rep1 fill:#fff3e0,stroke:#f57c00
+    style Rep2 fill:#fff3e0,stroke:#f57c00
+    style App fill:#e3f2fd,stroke:#1976d2
+```
 
 ```typescript
 // Cache-Aside Pattern Implementation
@@ -309,27 +332,32 @@ async findById(id: string): Promise<User | null> {
 
 ### 4.4 Auto-Scaling Infrastructure (ADR-004)
 
+```mermaid
+flowchart TB
+    A["📊 Metrics Collection"]
+    A1["• CPU Usage per container• Memory Usage• Request latency"]
+    
+    B["🤖 Auto-Scaler(Python Script)"]
+    B1["Algorithm: HPA-like proportionaldesiredReplicas = ceil(current × CPU/target)"]
+    
+    C["🐳 Docker Compose Scale"]
+    C1["docker compose up --scale SERVICE=N"]
+    
+    A --> A1
+    A1 --> B
+    B --> B1
+    B1 --> C
+    C --> C1
+    
+    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style A1 fill:#e3f2fd,stroke:#1976d2,stroke-width:1px,stroke-dasharray: 5 5
+    style B fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style B1 fill:#fff3e0,stroke:#f57c00,stroke-width:1px,stroke-dasharray: 5 5
+    style C fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style C1 fill:#e8f5e9,stroke:#388e3c,stroke-width:1px,stroke-dasharray: 5 5
 ```
-┌──────────────────────────────────────────┐
-│   Metrics Collection                      │
-│   - CPU Usage per container              │
-│   - Memory Usage                          │
-│   - Request latency                       │
-└───────────┬──────────────────────────────┘
-            │
-            ▼
-┌──────────────────────────────────────────┐
-│   Auto-Scaler (Python Script)            │
-│   Algorithm: HPA-like proportional       │
-│   desiredReplicas = ceil(current × (CPU/target))
-└───────────┬──────────────────────────────┘
-            │
-            ▼
-┌──────────────────────────────────────────┐
-│   Docker Compose Scale                   │
-│   docker compose up --scale trip-service=N
-└──────────────────────────────────────────┘
-```
+
+
 
 **Scaling Policy:**
 | Service | CPU Threshold | Scale Out Cooldown | Min/Max |
@@ -373,30 +401,19 @@ services:
 
 ### 5.2 Network Architecture
 
-```
-┌────────────────────────────────────────────┐
-│                 Client                      │
-└─────────────────────┬──────────────────────┘
-                      │ :8080
-              ┌───────▼───────┐
-              │     Nginx     │
-              │  Load Balancer│
-              └───────┬───────┘
-                      │
-    ┌─────────────────┼─────────────────┐
-    │                 │                 │
-    ▼ /users/*        ▼ /trips/*        ▼ /drivers/*
-┌─────────┐      ┌─────────┐      ┌─────────┐
-│  User   │      │  Trip   │      │ Driver  │
-│ Service │      │ Service │      │ Service │
-│ :3001   │      │ :3002   │      │ :3003   │
-└────┬────┘      └────┬────┘      └────┬────┘
-     │                │                │
-     │                │                │
-     ▼                ▼                ▼
-  Redis           PostgreSQL        Redis
-  Cluster         (Primary +       (Geo)
-                   Replicas)
+```mermaid
+flowchart TD
+    Client[Client]
+    
+    Client -->|:8080| LB[Nginx Load Balancer]
+    
+    LB -->|/users/*| US[User Service<br>:3001]
+    LB -->|/trips/*| TS[Trip Service<br>:3002]
+    LB -->|/drivers/*| DS[Driver Service<br>:3003]
+    
+    US --> RC[(Redis Cluster)]
+    TS --> PG[(PostgreSQL<br>Primary + Replicas)]
+    DS --> RG[(Redis Geo)]
 ```
 
 ---
