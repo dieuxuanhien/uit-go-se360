@@ -1,0 +1,2002 @@
+[
+  {
+    "lat": 10.786457982171347,
+    "lng": 106.68511461399709,
+    "address": "109 74 Road, District 1, HCMC"
+  },
+  {
+    "lat": 10.763294632477743,
+    "lng": 106.67651656179618,
+    "address": "38 19 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.765419757807114,
+    "lng": 106.68265783443779,
+    "address": "88 51 Street, District 1, HCMC"
+  },
+  {
+    "lat": 10.769885345762926,
+    "lng": 106.65404433753726,
+    "address": "83 69 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.762460713699557,
+    "lng": 106.68353470142166,
+    "address": "114 78 Street, District 1, HCMC"
+  },
+  {
+    "lat": 10.75571463596176,
+    "lng": 106.67022409629831,
+    "address": "41 20 Street, District 1, HCMC"
+  },
+  {
+    "lat": 10.782298553835108,
+    "lng": 106.65460472137825,
+    "address": "168 25 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.787520312865924,
+    "lng": 106.65834573126543,
+    "address": "10 76 Road, District 1, HCMC"
+  },
+  {
+    "lat": 10.757752586207586,
+    "lng": 106.66678005440276,
+    "address": "122 96 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.739333937333031,
+    "lng": 106.66222511825868,
+    "address": "435 65 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.785903090509187,
+    "lng": 106.6416034802022,
+    "address": "445 58 Lane, District 1, HCMC"
+  },
+  {
+    "lat": 10.780742293102936,
+    "lng": 106.65495739978124,
+    "address": "84 31 Lane, District 1, HCMC"
+  },
+  {
+    "lat": 10.738803624249746,
+    "lng": 106.6734227989647,
+    "address": "168 31 Road, District 1, HCMC"
+  },
+  {
+    "lat": 10.738576288696223,
+    "lng": 106.6532590831677,
+    "address": "147 46 Lane, District 1, HCMC"
+  },
+  {
+    "lat": 10.765610523757832,
+    "lng": 106.66841627478918,
+    "address": "85 84 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.771548302072162,
+    "lng": 106.66624181331167,
+    "address": "363 51 Lane, District 1, HCMC"
+  },
+  {
+    "lat": 10.7578166318916,
+    "lng": 106.63906080112051,
+    "address": "265 100 Boulevard, District 1, HCMC"
+  },
+  {
+    "lat": 10.780698166545173,
+    "lng": 106.63690206928909,
+    "address": "80 48 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.768418792837156,
+    "lng": 106.64180371517259,
+    "address": "64 74 Lane, District 1, HCMC"
+  },
+  {
+    "lat": 10.765283853440492,
+    "lng": 106.65845851651073,
+    "address": "33 7 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.752324724254501,
+    "lng": 106.64657986944475,
+    "address": "320 99 Street, District 1, HCMC"
+  },
+  {
+    "lat": 10.755317687231932,
+    "lng": 106.66279657648629,
+    "address": "289 72 Boulevard, District 1, HCMC"
+  },
+  {
+    "lat": 10.74094040578248,
+    "lng": 106.65807209766363,
+    "address": "306 34 Lane, District 1, HCMC"
+  },
+  {
+    "lat": 10.765492118665728,
+    "lng": 106.673505097496,
+    "address": "357 19 Boulevard, District 1, HCMC"
+  },
+  {
+    "lat": 10.7514181497491,
+    "lng": 106.6671070383005,
+    "address": "12 62 Boulevard, District 1, HCMC"
+  },
+  {
+    "lat": 10.748919341804578,
+    "lng": 106.67227178646277,
+    "address": "297 80 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.784091106186958,
+    "lng": 106.64300329156434,
+    "address": "15 25 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.752044000131903,
+    "lng": 106.6519257880723,
+    "address": "393 32 Boulevard, District 1, HCMC"
+  },
+  {
+    "lat": 10.778744419378897,
+    "lng": 106.67054668899648,
+    "address": "324 74 Road, District 1, HCMC"
+  },
+  {
+    "lat": 10.762986145216548,
+    "lng": 106.65770247014412,
+    "address": "467 7 Lane, District 1, HCMC"
+  },
+  {
+    "lat": 10.78584234271496,
+    "lng": 106.65034370857671,
+    "address": "240 86 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.750049266943867,
+    "lng": 106.64086947491046,
+    "address": "177 83 Lane, District 1, HCMC"
+  },
+  {
+    "lat": 10.745913365010951,
+    "lng": 106.678392771681,
+    "address": "203 53 Boulevard, District 1, HCMC"
+  },
+  {
+    "lat": 10.766038286206577,
+    "lng": 106.64307006308005,
+    "address": "394 77 Road, District 1, HCMC"
+  },
+  {
+    "lat": 10.750750589505888,
+    "lng": 106.6749680297423,
+    "address": "219 51 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.73941850171874,
+    "lng": 106.655439409798,
+    "address": "273 5 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.774052592600519,
+    "lng": 106.65132136249869,
+    "address": "300 32 Road, District 1, HCMC"
+  },
+  {
+    "lat": 10.78460866291998,
+    "lng": 106.65685458311013,
+    "address": "100 61 Lane, District 1, HCMC"
+  },
+  {
+    "lat": 10.7388300632495,
+    "lng": 106.66206211959236,
+    "address": "440 19 Road, District 1, HCMC"
+  },
+  {
+    "lat": 10.754706229872223,
+    "lng": 106.64630371682338,
+    "address": "354 27 Road, District 1, HCMC"
+  },
+  {
+    "lat": 10.744857442195775,
+    "lng": 106.65544066746251,
+    "address": "422 24 Road, District 1, HCMC"
+  },
+  {
+    "lat": 10.753812739499866,
+    "lng": 106.67490797665207,
+    "address": "344 37 Boulevard, District 1, HCMC"
+  },
+  {
+    "lat": 10.768260488919285,
+    "lng": 106.66401264155542,
+    "address": "298 85 Boulevard, District 1, HCMC"
+  },
+  {
+    "lat": 10.77287194155186,
+    "lng": 106.64228611922368,
+    "address": "116 95 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.741205500374143,
+    "lng": 106.64309026404749,
+    "address": "92 23 Lane, District 1, HCMC"
+  },
+  {
+    "lat": 10.765110794821805,
+    "lng": 106.68339495133445,
+    "address": "266 50 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.741841746692076,
+    "lng": 106.6487620631128,
+    "address": "419 15 Road, District 1, HCMC"
+  },
+  {
+    "lat": 10.786026911864132,
+    "lng": 106.65580510639145,
+    "address": "206 33 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.754841147727543,
+    "lng": 106.66969137720324,
+    "address": "78 58 Road, District 1, HCMC"
+  },
+  {
+    "lat": 10.772570298046103,
+    "lng": 106.64901608265569,
+    "address": "123 89 Avenue, District 1, HCMC"
+  },
+  {
+    "lat": 10.797395316039413,
+    "lng": 106.7017079646747,
+    "address": "177 5 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.807763654890776,
+    "lng": 106.69831401041444,
+    "address": "357 87 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.7796410003347,
+    "lng": 106.66791299096408,
+    "address": "277 94 Street, District 3, HCMC"
+  },
+  {
+    "lat": 10.80321226087509,
+    "lng": 106.70967009788328,
+    "address": "63 44 Road, District 3, HCMC"
+  },
+  {
+    "lat": 10.789773097076424,
+    "lng": 106.68701793404425,
+    "address": "306 78 Street, District 3, HCMC"
+  },
+  {
+    "lat": 10.78560220192122,
+    "lng": 106.68581178893072,
+    "address": "383 59 Boulevard, District 3, HCMC"
+  },
+  {
+    "lat": 10.810302701687172,
+    "lng": 106.6799224559019,
+    "address": "212 100 Lane, District 3, HCMC"
+  },
+  {
+    "lat": 10.791205265781374,
+    "lng": 106.66553075539281,
+    "address": "39 19 Street, District 3, HCMC"
+  },
+  {
+    "lat": 10.799946878195554,
+    "lng": 106.66682048376255,
+    "address": "11 41 Boulevard, District 3, HCMC"
+  },
+  {
+    "lat": 10.78695109413529,
+    "lng": 106.69627206277431,
+    "address": "169 89 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.76412757200565,
+    "lng": 106.67890998278568,
+    "address": "37 87 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.786857739290227,
+    "lng": 106.66864599129808,
+    "address": "131 86 Boulevard, District 3, HCMC"
+  },
+  {
+    "lat": 10.764766056521683,
+    "lng": 106.70259412765706,
+    "address": "460 85 Road, District 3, HCMC"
+  },
+  {
+    "lat": 10.804900795445139,
+    "lng": 106.6891786107208,
+    "address": "329 86 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.794319795054719,
+    "lng": 106.67105992422542,
+    "address": "498 5 Street, District 3, HCMC"
+  },
+  {
+    "lat": 10.80195719910813,
+    "lng": 106.6990729899534,
+    "address": "180 74 Street, District 3, HCMC"
+  },
+  {
+    "lat": 10.768158015530114,
+    "lng": 106.69375006351262,
+    "address": "143 72 Road, District 3, HCMC"
+  },
+  {
+    "lat": 10.787206310490452,
+    "lng": 106.66244782150683,
+    "address": "266 8 Boulevard, District 3, HCMC"
+  },
+  {
+    "lat": 10.76839753545195,
+    "lng": 106.70056463681235,
+    "address": "463 65 Road, District 3, HCMC"
+  },
+  {
+    "lat": 10.805545215569662,
+    "lng": 106.68893278332035,
+    "address": "367 65 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.809818551186234,
+    "lng": 106.6675555614957,
+    "address": "497 11 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.79348058079911,
+    "lng": 106.70588276394906,
+    "address": "175 61 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.794446965676785,
+    "lng": 106.68147324513124,
+    "address": "145 83 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.807873019160038,
+    "lng": 106.69196552642201,
+    "address": "206 5 Street, District 3, HCMC"
+  },
+  {
+    "lat": 10.782043439879734,
+    "lng": 106.7094812788702,
+    "address": "132 67 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.80399914891028,
+    "lng": 106.69884262135409,
+    "address": "84 87 Lane, District 3, HCMC"
+  },
+  {
+    "lat": 10.809758082334122,
+    "lng": 106.66727968523249,
+    "address": "209 40 Street, District 3, HCMC"
+  },
+  {
+    "lat": 10.808724078297121,
+    "lng": 106.71010083667211,
+    "address": "134 40 Road, District 3, HCMC"
+  },
+  {
+    "lat": 10.776816267569798,
+    "lng": 106.70778634506172,
+    "address": "341 75 Boulevard, District 3, HCMC"
+  },
+  {
+    "lat": 10.776270568637102,
+    "lng": 106.68755780142982,
+    "address": "90 52 Road, District 3, HCMC"
+  },
+  {
+    "lat": 10.789675492507296,
+    "lng": 106.66941499687114,
+    "address": "90 44 Road, District 3, HCMC"
+  },
+  {
+    "lat": 10.803725613785275,
+    "lng": 106.69277175367462,
+    "address": "444 62 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.811087302332721,
+    "lng": 106.69409138466403,
+    "address": "287 40 Road, District 3, HCMC"
+  },
+  {
+    "lat": 10.778746069349793,
+    "lng": 106.69335734605104,
+    "address": "103 15 Street, District 3, HCMC"
+  },
+  {
+    "lat": 10.785743386599501,
+    "lng": 106.70075669640232,
+    "address": "329 61 Street, District 3, HCMC"
+  },
+  {
+    "lat": 10.795243995483501,
+    "lng": 106.70770811712116,
+    "address": "221 37 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.7687907678259,
+    "lng": 106.66254323532506,
+    "address": "416 79 Avenue, District 3, HCMC"
+  },
+  {
+    "lat": 10.77358729418544,
+    "lng": 106.67633227157047,
+    "address": "81 98 Road, District 3, HCMC"
+  },
+  {
+    "lat": 10.7771105445976,
+    "lng": 106.6637987380821,
+    "address": "268 64 Street, District 3, HCMC"
+  },
+  {
+    "lat": 10.774657997614746,
+    "lng": 106.70680395712155,
+    "address": "461 39 Lane, District 3, HCMC"
+  },
+  {
+    "lat": 10.826848455280686,
+    "lng": 106.69778377110092,
+    "address": "163 4 Road, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.804585606891253,
+    "lng": 106.70547944443071,
+    "address": "281 33 Avenue, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.81352880894573,
+    "lng": 106.72085909312385,
+    "address": "33 61 Lane, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.810516206168764,
+    "lng": 106.6985315932228,
+    "address": "258 12 Road, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.808279625797306,
+    "lng": 106.67872973651345,
+    "address": "166 82 Lane, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.80457468823336,
+    "lng": 106.6850728967841,
+    "address": "116 4 Boulevard, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.806541494738768,
+    "lng": 106.71091754148263,
+    "address": "236 31 Boulevard, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.805242559010175,
+    "lng": 106.68120877765534,
+    "address": "347 48 Street, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.785342027348932,
+    "lng": 106.68087704358385,
+    "address": "269 58 Avenue, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.831311291130818,
+    "lng": 106.70363665922426,
+    "address": "215 28 Boulevard, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.801526514049156,
+    "lng": 106.67801808114297,
+    "address": "353 93 Road, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.793892209441443,
+    "lng": 106.70846961008716,
+    "address": "255 76 Boulevard, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.804806446710971,
+    "lng": 106.71891086300013,
+    "address": "460 74 Road, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.825556230386935,
+    "lng": 106.676145253681,
+    "address": "49 24 Street, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.812507949900807,
+    "lng": 106.70455082910044,
+    "address": "41 65 Boulevard, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.803782148252257,
+    "lng": 106.68243123267328,
+    "address": "344 10 Road, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.789080537960928,
+    "lng": 106.6801789129475,
+    "address": "72 9 Boulevard, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.816189177918156,
+    "lng": 106.67455995396301,
+    "address": "212 46 Boulevard, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.826026286331333,
+    "lng": 106.71696782030821,
+    "address": "425 16 Boulevard, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.79845723336155,
+    "lng": 106.7126446743338,
+    "address": "458 63 Street, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.794237538793439,
+    "lng": 106.71227204823215,
+    "address": "146 75 Lane, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.82806840833299,
+    "lng": 106.67427388540888,
+    "address": "275 34 Lane, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.791848954171453,
+    "lng": 106.687177381613,
+    "address": "103 19 Road, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.827541081911846,
+    "lng": 106.67729266823929,
+    "address": "172 64 Avenue, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.807821831080721,
+    "lng": 106.71169487153092,
+    "address": "104 86 Avenue, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.829088783882032,
+    "lng": 106.69851453301254,
+    "address": "292 58 Avenue, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.819757035412728,
+    "lng": 106.67566167285028,
+    "address": "263 3 Lane, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.80697283670376,
+    "lng": 106.68984269457974,
+    "address": "189 42 Street, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.806599826138141,
+    "lng": 106.70798589034389,
+    "address": "353 30 Avenue, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.802872855753566,
+    "lng": 106.67743324099852,
+    "address": "209 33 Avenue, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.795293247427606,
+    "lng": 106.70777348872946,
+    "address": "464 3 Lane, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.81651618585256,
+    "lng": 106.72029997597859,
+    "address": "407 95 Street, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.78757902760568,
+    "lng": 106.70988345507243,
+    "address": "232 59 Road, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.796889953200532,
+    "lng": 106.69742260659459,
+    "address": "126 62 Boulevard, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.804092235431968,
+    "lng": 106.6847513498955,
+    "address": "346 5 Street, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.810068568031408,
+    "lng": 106.68463102474946,
+    "address": "360 50 Lane, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.824247809235514,
+    "lng": 106.7075930283095,
+    "address": "483 1 Avenue, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.789695943123586,
+    "lng": 106.68484593973504,
+    "address": "360 82 Avenue, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.799180119954402,
+    "lng": 106.70780332377574,
+    "address": "206 8 Street, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.829167972213856,
+    "lng": 106.68081383118106,
+    "address": "157 59 Road, Binh Thanh, HCMC"
+  },
+  {
+    "lat": 10.786502893536541,
+    "lng": 106.67240272882194,
+    "address": "358 48 Street, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.79573134111706,
+    "lng": 106.70471620235847,
+    "address": "168 81 Road, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.811802912762442,
+    "lng": 106.68665124250178,
+    "address": "381 35 Road, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.817442061257065,
+    "lng": 106.6864877054716,
+    "address": "329 95 Lane, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.790096587409176,
+    "lng": 106.6607402418082,
+    "address": "394 70 Avenue, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.80716675663481,
+    "lng": 106.70594037215719,
+    "address": "379 88 Avenue, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.78754401097563,
+    "lng": 106.66758860221172,
+    "address": "97 99 Street, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.81868484538921,
+    "lng": 106.68778157448347,
+    "address": "21 99 Lane, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.819066623262156,
+    "lng": 106.69510008004825,
+    "address": "58 12 Boulevard, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.794594804624506,
+    "lng": 106.6707508777763,
+    "address": "22 48 Avenue, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.803333582600743,
+    "lng": 106.70662863816673,
+    "address": "269 26 Avenue, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.80781830634133,
+    "lng": 106.6577908040537,
+    "address": "62 49 Road, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.790450019877,
+    "lng": 106.68252253787941,
+    "address": "38 50 Lane, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.809752427516143,
+    "lng": 106.68439134813796,
+    "address": "305 41 Lane, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.785451122681526,
+    "lng": 106.67402961540921,
+    "address": "451 52 Lane, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.777133817962017,
+    "lng": 106.67341059179448,
+    "address": "283 36 Avenue, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.823100123343611,
+    "lng": 106.6635465357507,
+    "address": "193 73 Boulevard, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.81711668602682,
+    "lng": 106.69251697996152,
+    "address": "419 37 Road, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.800674470472229,
+    "lng": 106.70308808712798,
+    "address": "124 29 Road, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.811634859528162,
+    "lng": 106.66855920300617,
+    "address": "305 58 Boulevard, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.807097645759914,
+    "lng": 106.66585876960009,
+    "address": "60 34 Street, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.80465934007222,
+    "lng": 106.70121695026563,
+    "address": "253 2 Boulevard, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.813442813011493,
+    "lng": 106.66871450612364,
+    "address": "107 87 Street, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.773926505658443,
+    "lng": 106.70028223786696,
+    "address": "100 2 Lane, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.79343686273151,
+    "lng": 106.68400506936617,
+    "address": "486 27 Boulevard, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.784856036726834,
+    "lng": 106.66826822752847,
+    "address": "466 26 Avenue, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.784191380704003,
+    "lng": 106.69051070074362,
+    "address": "451 36 Avenue, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.793462312914174,
+    "lng": 106.68515917328469,
+    "address": "27 36 Street, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.784433651769971,
+    "lng": 106.68958455630448,
+    "address": "222 51 Boulevard, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.82207451143305,
+    "lng": 106.66341468670419,
+    "address": "113 15 Avenue, Phu Nhuan, HCMC"
+  },
+  {
+    "lat": 10.823364829548364,
+    "lng": 106.62184655399987,
+    "address": "364 7 Street, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.8121928777934,
+    "lng": 106.62464928605823,
+    "address": "361 54 Boulevard, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.811209079965407,
+    "lng": 106.62643147314806,
+    "address": "93 71 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.829103022445818,
+    "lng": 106.61469004840372,
+    "address": "407 66 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.84775571616003,
+    "lng": 106.61004773386858,
+    "address": "66 1 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.815888045985412,
+    "lng": 106.6253589127673,
+    "address": "234 65 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.812683441153704,
+    "lng": 106.62685298146157,
+    "address": "311 83 Avenue, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.803611883489177,
+    "lng": 106.64574095715928,
+    "address": "355 68 Avenue, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.842257206949162,
+    "lng": 106.60495593661403,
+    "address": "104 93 Street, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.825835552078724,
+    "lng": 106.6250548933314,
+    "address": "196 43 Road, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.832855574677382,
+    "lng": 106.61613335973017,
+    "address": "300 35 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.816860175739953,
+    "lng": 106.63818783065166,
+    "address": "366 3 Avenue, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.805769350985734,
+    "lng": 106.6371920095942,
+    "address": "437 18 Avenue, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.84436761637672,
+    "lng": 106.63767300849047,
+    "address": "495 2 Road, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.821466685844484,
+    "lng": 106.654499224845,
+    "address": "343 77 Street, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.829474243285283,
+    "lng": 106.61970013189162,
+    "address": "251 88 Road, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.837062159402107,
+    "lng": 106.64031800065497,
+    "address": "92 86 Boulevard, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.82639932607547,
+    "lng": 106.64944491225681,
+    "address": "333 28 Avenue, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.847154851503431,
+    "lng": 106.62436063800186,
+    "address": "462 86 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.820667769867017,
+    "lng": 106.60754626027618,
+    "address": "406 30 Avenue, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.814930675444307,
+    "lng": 106.63878843928767,
+    "address": "348 59 Street, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.830679563232449,
+    "lng": 106.61098290946805,
+    "address": "498 68 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.80598281893071,
+    "lng": 106.63204750579673,
+    "address": "492 62 Avenue, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.804930814143406,
+    "lng": 106.62504806859552,
+    "address": "360 6 Avenue, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.811162420056998,
+    "lng": 106.64477277251018,
+    "address": "104 80 Road, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.820942739478584,
+    "lng": 106.64363202674473,
+    "address": "340 58 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.841348468283428,
+    "lng": 106.64179187666225,
+    "address": "215 31 Road, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.839617370085632,
+    "lng": 106.64136218518442,
+    "address": "239 9 Road, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.805535156444076,
+    "lng": 106.6323667730545,
+    "address": "269 91 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.815017446850922,
+    "lng": 106.61230626925772,
+    "address": "427 36 Street, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.8191219584787,
+    "lng": 106.62535463508775,
+    "address": "430 98 Road, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.813673002192271,
+    "lng": 106.61213625639532,
+    "address": "485 77 Boulevard, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.807225568736246,
+    "lng": 106.64646542673016,
+    "address": "105 11 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.822527245463123,
+    "lng": 106.63630841397134,
+    "address": "256 18 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.800946080029782,
+    "lng": 106.64509574747784,
+    "address": "23 60 Lane, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.815817751456649,
+    "lng": 106.64209889127088,
+    "address": "332 72 Avenue, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.824470012114295,
+    "lng": 106.63595394226058,
+    "address": "283 6 Avenue, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.843972364996468,
+    "lng": 106.64178221846865,
+    "address": "193 5 Road, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.81116377853626,
+    "lng": 106.63154695887656,
+    "address": "9 89 Street, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.847311504617796,
+    "lng": 106.60573215868509,
+    "address": "299 24 Street, Tan Binh, HCMC"
+  },
+  {
+    "lat": 10.861990453592416,
+    "lng": 106.64979685637051,
+    "address": "85 54 Boulevard, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.85453913979675,
+    "lng": 106.64670498149356,
+    "address": "488 38 Street, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.84190106606589,
+    "lng": 106.65937704542395,
+    "address": "381 91 Lane, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.822172472772172,
+    "lng": 106.66960769641177,
+    "address": "90 27 Lane, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.82530726303756,
+    "lng": 106.66247401112494,
+    "address": "243 32 Lane, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.826013704778406,
+    "lng": 106.68002027742176,
+    "address": "379 6 Street, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.85316194453772,
+    "lng": 106.68975305863391,
+    "address": "455 34 Boulevard, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.842720466498077,
+    "lng": 106.67911311279232,
+    "address": "85 73 Avenue, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.847524886809381,
+    "lng": 106.6605048644123,
+    "address": "273 24 Boulevard, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.830517997241198,
+    "lng": 106.65885016867217,
+    "address": "237 14 Boulevard, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.82909552586979,
+    "lng": 106.64247553271056,
+    "address": "214 45 Lane, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.859332101976182,
+    "lng": 106.68610181953973,
+    "address": "32 51 Lane, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.818034319703251,
+    "lng": 106.67409790571666,
+    "address": "184 49 Avenue, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.822862734647265,
+    "lng": 106.68331523977547,
+    "address": "387 5 Lane, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.844637232743793,
+    "lng": 106.64938099774088,
+    "address": "256 92 Lane, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.857818647385157,
+    "lng": 106.6775633562546,
+    "address": "28 6 Street, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.839167410437271,
+    "lng": 106.68800824706283,
+    "address": "95 32 Boulevard, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.84925339097559,
+    "lng": 106.68071639001083,
+    "address": "86 13 Avenue, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.858811019590858,
+    "lng": 106.65128249302803,
+    "address": "86 33 Avenue, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.840542726290527,
+    "lng": 106.64271066335726,
+    "address": "233 46 Boulevard, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.859336977380647,
+    "lng": 106.65189258103266,
+    "address": "299 18 Street, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.84324843395764,
+    "lng": 106.67266463284572,
+    "address": "193 61 Boulevard, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.833315270430916,
+    "lng": 106.66143748115792,
+    "address": "367 26 Avenue, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.853346117730954,
+    "lng": 106.68322484344439,
+    "address": "198 45 Boulevard, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.82387269409476,
+    "lng": 106.67482846055658,
+    "address": "60 72 Street, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.8427883490424,
+    "lng": 106.67144211168798,
+    "address": "25 53 Avenue, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.858290579343658,
+    "lng": 106.67042080894807,
+    "address": "294 68 Avenue, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.845172649431577,
+    "lng": 106.64738404784248,
+    "address": "64 34 Avenue, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.851827439825236,
+    "lng": 106.69010895442382,
+    "address": "453 99 Boulevard, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.84669240385151,
+    "lng": 106.67547812412177,
+    "address": "133 86 Road, Go Vap, HCMC"
+  },
+  {
+    "lat": 10.72577802909459,
+    "lng": 106.72368438695018,
+    "address": "277 32 Avenue, District 7, HCMC"
+  },
+  {
+    "lat": 10.744964984869334,
+    "lng": 106.69945394229542,
+    "address": "400 82 Avenue, District 7, HCMC"
+  },
+  {
+    "lat": 10.704799602495628,
+    "lng": 106.70259693913177,
+    "address": "199 77 Boulevard, District 7, HCMC"
+  },
+  {
+    "lat": 10.751081559915326,
+    "lng": 106.74533874298962,
+    "address": "151 42 Boulevard, District 7, HCMC"
+  },
+  {
+    "lat": 10.72067059395107,
+    "lng": 106.70447956836244,
+    "address": "137 38 Boulevard, District 7, HCMC"
+  },
+  {
+    "lat": 10.715544417426473,
+    "lng": 106.70021958162609,
+    "address": "431 64 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.707107174198859,
+    "lng": 106.71398141225983,
+    "address": "149 74 Avenue, District 7, HCMC"
+  },
+  {
+    "lat": 10.737327851461371,
+    "lng": 106.73720732940399,
+    "address": "483 1 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.717146303479632,
+    "lng": 106.71859577255036,
+    "address": "262 5 Road, District 7, HCMC"
+  },
+  {
+    "lat": 10.705495732225357,
+    "lng": 106.69873047649064,
+    "address": "492 14 Avenue, District 7, HCMC"
+  },
+  {
+    "lat": 10.73582371838024,
+    "lng": 106.71574286098642,
+    "address": "44 10 Street, District 7, HCMC"
+  },
+  {
+    "lat": 10.73581456647215,
+    "lng": 106.73932283145675,
+    "address": "356 61 Road, District 7, HCMC"
+  },
+  {
+    "lat": 10.728647233889175,
+    "lng": 106.72277786613655,
+    "address": "20 84 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.72754119610715,
+    "lng": 106.73011028342721,
+    "address": "92 76 Street, District 7, HCMC"
+  },
+  {
+    "lat": 10.70383956089182,
+    "lng": 106.73770714352932,
+    "address": "367 29 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.745061719653359,
+    "lng": 106.73276470109013,
+    "address": "124 65 Road, District 7, HCMC"
+  },
+  {
+    "lat": 10.713555183949609,
+    "lng": 106.73706145779795,
+    "address": "85 81 Road, District 7, HCMC"
+  },
+  {
+    "lat": 10.742076545477634,
+    "lng": 106.7375383820429,
+    "address": "272 78 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.714529059765468,
+    "lng": 106.74171788274225,
+    "address": "416 18 Street, District 7, HCMC"
+  },
+  {
+    "lat": 10.720137274708746,
+    "lng": 106.71163516720358,
+    "address": "399 48 Road, District 7, HCMC"
+  },
+  {
+    "lat": 10.727198195571884,
+    "lng": 106.71696647614877,
+    "address": "9 52 Boulevard, District 7, HCMC"
+  },
+  {
+    "lat": 10.719392405216684,
+    "lng": 106.70264146135254,
+    "address": "92 27 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.748674028710226,
+    "lng": 106.74078193905667,
+    "address": "134 55 Boulevard, District 7, HCMC"
+  },
+  {
+    "lat": 10.739309260974318,
+    "lng": 106.73502948154007,
+    "address": "239 75 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.738271400782649,
+    "lng": 106.73916542308436,
+    "address": "420 82 Boulevard, District 7, HCMC"
+  },
+  {
+    "lat": 10.707816622964454,
+    "lng": 106.73025258509738,
+    "address": "361 18 Street, District 7, HCMC"
+  },
+  {
+    "lat": 10.723251044758538,
+    "lng": 106.71705077387806,
+    "address": "449 2 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.74598471418875,
+    "lng": 106.7414532535197,
+    "address": "452 38 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.706909717169498,
+    "lng": 106.7150253999739,
+    "address": "126 1 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.745974909592624,
+    "lng": 106.74443416534184,
+    "address": "125 66 Street, District 7, HCMC"
+  },
+  {
+    "lat": 10.747320992597398,
+    "lng": 106.70610148338756,
+    "address": "438 83 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.720334160695915,
+    "lng": 106.73633932191957,
+    "address": "490 7 Street, District 7, HCMC"
+  },
+  {
+    "lat": 10.747285935533242,
+    "lng": 106.73975662752683,
+    "address": "198 88 Boulevard, District 7, HCMC"
+  },
+  {
+    "lat": 10.717959201587197,
+    "lng": 106.72198653285174,
+    "address": "57 16 Road, District 7, HCMC"
+  },
+  {
+    "lat": 10.745520795935114,
+    "lng": 106.73347340894233,
+    "address": "416 71 Lane, District 7, HCMC"
+  },
+  {
+    "lat": 10.724252116088122,
+    "lng": 106.69785929707308,
+    "address": "334 34 Road, District 7, HCMC"
+  },
+  {
+    "lat": 10.7522465313192,
+    "lng": 106.71302742878186,
+    "address": "256 80 Street, District 7, HCMC"
+  },
+  {
+    "lat": 10.731086546342533,
+    "lng": 106.72515018175353,
+    "address": "172 72 Road, District 7, HCMC"
+  },
+  {
+    "lat": 10.708761735233571,
+    "lng": 106.7166662000458,
+    "address": "237 5 Boulevard, District 7, HCMC"
+  },
+  {
+    "lat": 10.71926130441306,
+    "lng": 106.71309774350372,
+    "address": "453 40 Boulevard, District 7, HCMC"
+  },
+  {
+    "lat": 10.864727693813743,
+    "lng": 106.76035973051906,
+    "address": "60 45 Street, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.845701182511268,
+    "lng": 106.7689799801776,
+    "address": "427 17 Avenue, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.862725313980143,
+    "lng": 106.76452103458838,
+    "address": "384 24 Street, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.846613385044568,
+    "lng": 106.76472745110027,
+    "address": "422 95 Boulevard, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.853291563791384,
+    "lng": 106.74899313051297,
+    "address": "62 27 Road, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.832638687835459,
+    "lng": 106.74514842998653,
+    "address": "208 92 Lane, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.829285991443664,
+    "lng": 106.75243998750099,
+    "address": "86 10 Street, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.836450403937306,
+    "lng": 106.77775952189239,
+    "address": "495 1 Boulevard, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.864131572472882,
+    "lng": 106.75631016191963,
+    "address": "247 23 Road, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.848684003888362,
+    "lng": 106.77020796520468,
+    "address": "276 36 Street, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.848590756307601,
+    "lng": 106.76257494301706,
+    "address": "466 70 Road, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.871811903049263,
+    "lng": 106.79146830730419,
+    "address": "11 61 Lane, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.872675309889852,
+    "lng": 106.7924601138637,
+    "address": "304 73 Lane, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.85883885615248,
+    "lng": 106.75263533939099,
+    "address": "162 16 Street, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.857821385256681,
+    "lng": 106.75634350076672,
+    "address": "97 55 Boulevard, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.830129083059242,
+    "lng": 106.79115867250074,
+    "address": "364 99 Boulevard, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.86800722408838,
+    "lng": 106.7704576183725,
+    "address": "369 31 Lane, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.844512711524512,
+    "lng": 106.75011892195646,
+    "address": "352 16 Street, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.830080313630564,
+    "lng": 106.77838538823626,
+    "address": "420 21 Lane, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.834757208763772,
+    "lng": 106.76006796791113,
+    "address": "286 82 Street, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.874969023723251,
+    "lng": 106.7920440993899,
+    "address": "191 32 Road, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.838920040219515,
+    "lng": 106.76280823552817,
+    "address": "190 97 Street, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.87244821198897,
+    "lng": 106.78478688864182,
+    "address": "269 4 Avenue, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.83736142673792,
+    "lng": 106.78165471640477,
+    "address": "98 3 Avenue, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.872674140112979,
+    "lng": 106.77059910975744,
+    "address": "418 65 Boulevard, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.836094547258265,
+    "lng": 106.77645989282964,
+    "address": "192 2 Avenue, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.85867754851326,
+    "lng": 106.76938309799559,
+    "address": "93 6 Boulevard, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.830573223029582,
+    "lng": 106.75461019150373,
+    "address": "429 45 Avenue, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.864679812141633,
+    "lng": 106.76930786947241,
+    "address": "122 90 Road, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.829455594223019,
+    "lng": 106.79424797832051,
+    "address": "259 80 Road, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.831958328061978,
+    "lng": 106.74876820198888,
+    "address": "479 37 Avenue, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.86342337771102,
+    "lng": 106.74957705472625,
+    "address": "164 46 Road, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.85131773235029,
+    "lng": 106.75523785799378,
+    "address": "418 26 Street, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.837257405962957,
+    "lng": 106.76336737633368,
+    "address": "26 64 Lane, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.83037174585015,
+    "lng": 106.77384914480147,
+    "address": "362 2 Avenue, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.85243194641663,
+    "lng": 106.78319756600425,
+    "address": "256 53 Lane, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.836726125020219,
+    "lng": 106.77226635558587,
+    "address": "331 1 Boulevard, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.858001991440082,
+    "lng": 106.77070664218925,
+    "address": "164 85 Lane, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.869411926667327,
+    "lng": 106.76303190313214,
+    "address": "484 70 Avenue, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.870359762881268,
+    "lng": 106.78333656476323,
+    "address": "207 40 Boulevard, Thu Duc, HCMC"
+  },
+  {
+    "lat": 10.777804041012839,
+    "lng": 106.64243762654611,
+    "address": "407 56 Road, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.815659453075234,
+    "lng": 106.64684731575701,
+    "address": "158 15 Lane, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.816433258040052,
+    "lng": 106.63179088636852,
+    "address": "65 63 Lane, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.811080644244727,
+    "lng": 106.63861474874606,
+    "address": "112 10 Avenue, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.786270378768876,
+    "lng": 106.62389683507978,
+    "address": "186 32 Street, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.804111712243543,
+    "lng": 106.64832079063231,
+    "address": "26 51 Avenue, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.77155110329423,
+    "lng": 106.60883544504723,
+    "address": "369 24 Avenue, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.783796621197526,
+    "lng": 106.6487972370337,
+    "address": "346 33 Avenue, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.8050723936262,
+    "lng": 106.64129856761066,
+    "address": "26 84 Street, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.806113519764859,
+    "lng": 106.60931780696473,
+    "address": "13 84 Avenue, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.808410307667087,
+    "lng": 106.60412531313946,
+    "address": "221 78 Avenue, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.813508401533168,
+    "lng": 106.62319616737138,
+    "address": "415 67 Road, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.812111473799888,
+    "lng": 106.63498789701471,
+    "address": "190 43 Street, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.791173084067676,
+    "lng": 106.60459632460724,
+    "address": "186 96 Street, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.813060081909965,
+    "lng": 106.60472240427386,
+    "address": "386 29 Boulevard, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.791095845070581,
+    "lng": 106.60183910668789,
+    "address": "246 76 Avenue, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.778175530234249,
+    "lng": 106.6079938616339,
+    "address": "190 63 Boulevard, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.77614716010412,
+    "lng": 106.62646610376945,
+    "address": "103 94 Boulevard, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.788608736797741,
+    "lng": 106.6330756271086,
+    "address": "23 39 Boulevard, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.78992037547136,
+    "lng": 106.60174952149067,
+    "address": "462 17 Street, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.796728286480933,
+    "lng": 106.60620859082036,
+    "address": "362 1 Road, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.785336763092493,
+    "lng": 106.63096636886294,
+    "address": "433 90 Street, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.805134643891082,
+    "lng": 106.61546736907094,
+    "address": "250 18 Boulevard, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.804010041810786,
+    "lng": 106.64131930269942,
+    "address": "407 10 Lane, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.787031088359347,
+    "lng": 106.64531100589747,
+    "address": "473 16 Street, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.801210353484732,
+    "lng": 106.60386276618797,
+    "address": "190 73 Avenue, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.79169912185753,
+    "lng": 106.63603823013273,
+    "address": "407 25 Boulevard, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.776989738212821,
+    "lng": 106.60994100382824,
+    "address": "129 54 Lane, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.818639896661326,
+    "lng": 106.63076553182518,
+    "address": "485 75 Lane, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.805860304819808,
+    "lng": 106.6003881770183,
+    "address": "194 9 Road, Tan Phu, HCMC"
+  },
+  {
+    "lat": 10.749470439582309,
+    "lng": 106.68469067726225,
+    "address": "91 76 Road, District 10, HCMC"
+  },
+  {
+    "lat": 10.771608177352686,
+    "lng": 106.66105814164834,
+    "address": "138 41 Lane, District 10, HCMC"
+  },
+  {
+    "lat": 10.771761560328244,
+    "lng": 106.69422902234489,
+    "address": "147 6 Lane, District 10, HCMC"
+  },
+  {
+    "lat": 10.750280450880595,
+    "lng": 106.67557939567881,
+    "address": "24 71 Street, District 10, HCMC"
+  },
+  {
+    "lat": 10.756365004758276,
+    "lng": 106.68445555052607,
+    "address": "77 81 Avenue, District 10, HCMC"
+  },
+  {
+    "lat": 10.763479435851096,
+    "lng": 106.68409989028456,
+    "address": "192 79 Avenue, District 10, HCMC"
+  },
+  {
+    "lat": 10.768631189045207,
+    "lng": 106.68650362502049,
+    "address": "443 40 Road, District 10, HCMC"
+  },
+  {
+    "lat": 10.794636200028783,
+    "lng": 106.6732176405449,
+    "address": "209 30 Street, District 10, HCMC"
+  },
+  {
+    "lat": 10.761099350871268,
+    "lng": 106.67030540087093,
+    "address": "249 87 Lane, District 10, HCMC"
+  },
+  {
+    "lat": 10.774439839494335,
+    "lng": 106.65190382344107,
+    "address": "312 88 Boulevard, District 10, HCMC"
+  },
+  {
+    "lat": 10.785864591311022,
+    "lng": 106.65923837698942,
+    "address": "14 100 Street, District 10, HCMC"
+  },
+  {
+    "lat": 10.749449997501983,
+    "lng": 106.68276955538914,
+    "address": "2 10 Boulevard, District 10, HCMC"
+  },
+  {
+    "lat": 10.756554076459087,
+    "lng": 106.68222290474986,
+    "address": "380 76 Lane, District 10, HCMC"
+  },
+  {
+    "lat": 10.78623828303316,
+    "lng": 106.66314552773264,
+    "address": "29 63 Road, District 10, HCMC"
+  },
+  {
+    "lat": 10.795320552782782,
+    "lng": 106.6685614290627,
+    "address": "214 69 Boulevard, District 10, HCMC"
+  },
+  {
+    "lat": 10.775869247520673,
+    "lng": 106.64511829842463,
+    "address": "196 91 Road, District 10, HCMC"
+  },
+  {
+    "lat": 10.749815278541508,
+    "lng": 106.64746614931622,
+    "address": "297 92 Street, District 10, HCMC"
+  },
+  {
+    "lat": 10.785142286476196,
+    "lng": 106.67137791729128,
+    "address": "283 17 Street, District 10, HCMC"
+  },
+  {
+    "lat": 10.781011596515212,
+    "lng": 106.68348400963538,
+    "address": "322 71 Avenue, District 10, HCMC"
+  },
+  {
+    "lat": 10.791226601369326,
+    "lng": 106.67226001635562,
+    "address": "132 95 Lane, District 10, HCMC"
+  },
+  {
+    "lat": 10.791036092665278,
+    "lng": 106.69054222786818,
+    "address": "24 56 Street, District 10, HCMC"
+  },
+  {
+    "lat": 10.775109040993737,
+    "lng": 106.65943086725841,
+    "address": "357 70 Street, District 10, HCMC"
+  },
+  {
+    "lat": 10.770820563795793,
+    "lng": 106.67172639989919,
+    "address": "178 41 Avenue, District 10, HCMC"
+  },
+  {
+    "lat": 10.776920213836572,
+    "lng": 106.65349557614456,
+    "address": "181 52 Lane, District 10, HCMC"
+  },
+  {
+    "lat": 10.78603837840219,
+    "lng": 106.65255840642499,
+    "address": "213 35 Avenue, District 10, HCMC"
+  },
+  {
+    "lat": 10.752703510778815,
+    "lng": 106.66212588519574,
+    "address": "493 33 Lane, District 10, HCMC"
+  },
+  {
+    "lat": 10.795714852158417,
+    "lng": 106.66240364132099,
+    "address": "485 1 Boulevard, District 10, HCMC"
+  },
+  {
+    "lat": 10.783247715878147,
+    "lng": 106.65474357208186,
+    "address": "60 8 Street, District 10, HCMC"
+  },
+  {
+    "lat": 10.78069549667794,
+    "lng": 106.65036805801535,
+    "address": "292 82 Boulevard, District 10, HCMC"
+  },
+  {
+    "lat": 10.78417497118719,
+    "lng": 106.65163413027182,
+    "address": "414 51 Street, District 10, HCMC"
+  },
+  {
+    "lat": 10.763289017373006,
+    "lng": 106.65086118062786,
+    "address": "447 16 Avenue, District 5, HCMC"
+  },
+  {
+    "lat": 10.745762127645785,
+    "lng": 106.68714765701368,
+    "address": "61 1 Lane, District 5, HCMC"
+  },
+  {
+    "lat": 10.743296490401574,
+    "lng": 106.66724384798187,
+    "address": "308 55 Street, District 5, HCMC"
+  },
+  {
+    "lat": 10.764522952956028,
+    "lng": 106.64205483305196,
+    "address": "461 12 Street, District 5, HCMC"
+  },
+  {
+    "lat": 10.774321019636831,
+    "lng": 106.67359334140295,
+    "address": "26 32 Street, District 5, HCMC"
+  },
+  {
+    "lat": 10.742627629530162,
+    "lng": 106.68799413667308,
+    "address": "218 95 Street, District 5, HCMC"
+  },
+  {
+    "lat": 10.779146534866255,
+    "lng": 106.68570279819168,
+    "address": "293 60 Lane, District 5, HCMC"
+  },
+  {
+    "lat": 10.734158274571993,
+    "lng": 106.65500607611162,
+    "address": "171 82 Road, District 5, HCMC"
+  },
+  {
+    "lat": 10.775466318035264,
+    "lng": 106.65841641460905,
+    "address": "457 96 Lane, District 5, HCMC"
+  },
+  {
+    "lat": 10.739103770917453,
+    "lng": 106.67072324693139,
+    "address": "361 29 Road, District 5, HCMC"
+  },
+  {
+    "lat": 10.762744061068783,
+    "lng": 106.658424097788,
+    "address": "136 35 Boulevard, District 5, HCMC"
+  },
+  {
+    "lat": 10.779114177785253,
+    "lng": 106.66759704468772,
+    "address": "42 37 Lane, District 5, HCMC"
+  },
+  {
+    "lat": 10.739455418151481,
+    "lng": 106.6899706157787,
+    "address": "238 58 Street, District 5, HCMC"
+  },
+  {
+    "lat": 10.76036729967808,
+    "lng": 106.67521134362946,
+    "address": "259 13 Lane, District 5, HCMC"
+  },
+  {
+    "lat": 10.749592242831016,
+    "lng": 106.64560213782744,
+    "address": "275 21 Boulevard, District 5, HCMC"
+  },
+  {
+    "lat": 10.76692717271537,
+    "lng": 106.68071033543825,
+    "address": "383 65 Road, District 5, HCMC"
+  },
+  {
+    "lat": 10.748058967218551,
+    "lng": 106.64390646546843,
+    "address": "23 93 Street, District 5, HCMC"
+  },
+  {
+    "lat": 10.74636108104109,
+    "lng": 106.67256010426935,
+    "address": "100 25 Avenue, District 5, HCMC"
+  },
+  {
+    "lat": 10.772227678565828,
+    "lng": 106.65415162474687,
+    "address": "316 64 Boulevard, District 5, HCMC"
+  },
+  {
+    "lat": 10.73256769462334,
+    "lng": 106.66612251550688,
+    "address": "169 72 Street, District 5, HCMC"
+  },
+  {
+    "lat": 10.772812840568173,
+    "lng": 106.67903487668585,
+    "address": "369 66 Lane, District 5, HCMC"
+  },
+  {
+    "lat": 10.743913335713547,
+    "lng": 106.64313348665112,
+    "address": "194 88 Street, District 5, HCMC"
+  },
+  {
+    "lat": 10.732843321775857,
+    "lng": 106.68636360436798,
+    "address": "233 98 Boulevard, District 5, HCMC"
+  },
+  {
+    "lat": 10.764619893191945,
+    "lng": 106.68630492945037,
+    "address": "129 79 Lane, District 5, HCMC"
+  },
+  {
+    "lat": 10.736424817075424,
+    "lng": 106.67108089908761,
+    "address": "494 68 Street, District 5, HCMC"
+  },
+  {
+    "lat": 10.765674348407268,
+    "lng": 106.65681284274457,
+    "address": "210 75 Boulevard, District 5, HCMC"
+  },
+  {
+    "lat": 10.756212288352689,
+    "lng": 106.66264455706073,
+    "address": "242 67 Avenue, District 5, HCMC"
+  },
+  {
+    "lat": 10.748534759724114,
+    "lng": 106.6814909190402,
+    "address": "323 29 Road, District 5, HCMC"
+  },
+  {
+    "lat": 10.771929556535852,
+    "lng": 106.67851463880537,
+    "address": "402 52 Boulevard, District 5, HCMC"
+  },
+  {
+    "lat": 10.764944706512358,
+    "lng": 106.68887142196256,
+    "address": "401 42 Lane, District 5, HCMC"
+  }
+]

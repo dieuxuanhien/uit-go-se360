@@ -1,0 +1,17 @@
+# Load test results (generated during test execution)
+*.json
+!package.json
+
+# Test result directories
+baseline-*
+spike-*
+stress-*
+soak-*
+smoke-*
+
+# Reports
+*.html
+*.pdf
+
+# Logs
+*.log
