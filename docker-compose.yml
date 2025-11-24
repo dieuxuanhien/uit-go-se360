@@ -65,8 +65,15 @@ services:
       LOG_LEVEL: debug
       USER_SERVICE_PORT: 3001
       DATABASE_URL: postgresql://postgres:postgres@postgres-user:5432/uitgo_user?schema=public
+      DATABASE_REPLICA1_URL: postgresql://postgres:postgres@postgres-user-replica-1:5432/uitgo_user?schema=public
+      DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-user-replica-2:5432/uitgo_user?schema=public
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
       JWT_EXPIRES_IN: 7d
+      # AWS/LocalStack Configuration
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     ports:
       - '3001:3001'
     depends_on:
@@ -97,6 +104,11 @@ services:
       REDIS_DB: 0
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
       JWT_EXPIRES_IN: 7d
+      # AWS/LocalStack Configuration
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     ports:
       - '3003:3003'
     depends_on:
@@ -125,6 +137,13 @@ services:
       DRIVER_SERVICE_PORT: 3003
       DRIVER_SERVICE_URL: http://driver-service:3003
       DATABASE_URL: postgresql://postgres:postgres@postgres-trip:5432/uitgo_trip?schema=public
+      DATABASE_REPLICA1_URL: postgresql://postgres:postgres@postgres-trip-replica-1:5432/uitgo_trip?schema=public
+      DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-trip-replica-2:5432/uitgo_trip?schema=public
+      # AWS/LocalStack Configuration
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     ports:
       - '3002:3002'
     depends_on:

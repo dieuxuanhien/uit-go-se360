@@ -1,10 +1,14 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { PrismaReplicaService } from '../database/database-replica.service';
 import { DriverProfile, Prisma } from '@prisma/client';
 
 @Injectable()
 export class DriverProfilesRepository {
-  constructor(private readonly prisma: DatabaseService) {}
+  constructor(
+    private readonly prisma: DatabaseService,
+    private readonly replicaService: PrismaReplicaService,
+  ) {}
 
   async create(data: Prisma.DriverProfileCreateInput): Promise<DriverProfile> {
     try {
@@ -43,7 +47,9 @@ export class DriverProfilesRepository {
   }
 
   async findByUserId(userId: string): Promise<DriverProfile | null> {
-    return await this.prisma.driverProfile.findUnique({
+    // Story 2.2: Use read replica for SELECT queries
+    const readClient = this.replicaService.getReadClient();
+    return await readClient.driverProfile.findUnique({
       where: { userId },
       include: {
         user: true,
@@ -54,7 +60,9 @@ export class DriverProfilesRepository {
   async findByVehiclePlate(
     vehiclePlate: string,
   ): Promise<DriverProfile | null> {
-    return await this.prisma.driverProfile.findUnique({
+    // Story 2.2: Use read replica for SELECT queries
+    const readClient = this.replicaService.getReadClient();
+    return await readClient.driverProfile.findUnique({
       where: { vehiclePlate },
     });
   }
@@ -62,7 +70,9 @@ export class DriverProfilesRepository {
   async findByLicenseNumber(
     licenseNumber: string,
   ): Promise<DriverProfile | null> {
-    return await this.prisma.driverProfile.findUnique({
+    // Story 2.2: Use read replica for SELECT queries
+    const readClient = this.replicaService.getReadClient();
+    return await readClient.driverProfile.findUnique({
       where: { licenseNumber },
     });
   }

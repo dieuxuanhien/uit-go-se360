@@ -1,0 +1,135 @@
+# Story 2.2: Database Read Scaling with Postgres Streaming Replication
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.localstack.yml -f docker-compose.replicas.yml up -d
+
+version: '3.8'
+
+services:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # User Database Read Replicas (2x)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  postgres-user-replica-1:
+    image: postgres:15-alpine
+    container_name: uitgo-postgres-user-replica-1
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: uitgo_user
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '5434:5432'
+    volumes:
+      - postgres-user-replica-1-data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/setup-replica-entrypoint.sh:/setup-replica.sh:ro
+    entrypoint: ["/bin/bash", "/setup-replica.sh", "postgres-user", "postgres", "postgres"]
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uitgo-network
+
+  postgres-user-replica-2:
+    image: postgres:15-alpine
+    container_name: uitgo-postgres-user-replica-2
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: uitgo_user
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '5435:5432'
+    volumes:
+      - postgres-user-replica-2-data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/setup-replica-entrypoint.sh:/setup-replica.sh:ro
+    entrypoint: ["/bin/bash", "/setup-replica.sh", "postgres-user", "postgres", "postgres"]
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uitgo-network
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Trip Database Read Replicas (2x)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  postgres-trip-replica-1:
+    image: postgres:15-alpine
+    container_name: uitgo-postgres-trip-replica-1
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: uitgo_trip
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '5436:5432'
+    volumes:
+      - postgres-trip-replica-1-data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/setup-replica-entrypoint.sh:/setup-replica.sh:ro
+    entrypoint: ["/bin/bash", "/setup-replica.sh", "postgres-trip", "postgres", "postgres"]
+    depends_on:
+      postgres-trip:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uitgo-network
+
+  postgres-trip-replica-2:
+    image: postgres:15-alpine
+    container_name: uitgo-postgres-trip-replica-2
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: uitgo_trip
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '5437:5432'
+    volumes:
+      - postgres-trip-replica-2-data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/setup-replica-entrypoint.sh:/setup-replica.sh:ro
+    entrypoint: ["/bin/bash", "/setup-replica.sh", "postgres-trip", "postgres", "postgres"]
+    depends_on:
+      postgres-trip:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uitgo-network
+
+# Override postgres-user primary to enable replication
+  postgres-user:
+    volumes:
+      - postgres-user-data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init-primary-replication.sh:/docker-entrypoint-initdb.d/init-replication.sh:ro
+
+# Override postgres-trip primary to enable replication  
+  postgres-trip:
+    volumes:
+      - postgres-trip-data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init-primary-replication.sh:/docker-entrypoint-initdb.d/init-replication.sh:ro
+
+volumes:
+  postgres-user-replica-1-data:
+    driver: local
+  postgres-user-replica-2-data:
+    driver: local
+  postgres-trip-replica-1-data:
+    driver: local
+  postgres-trip-replica-2-data:
+    driver: local

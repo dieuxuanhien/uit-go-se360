@@ -6,6 +6,7 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Trip, TripStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PrismaReplicaService } from '../prisma/prisma-replica.service';
 
 export interface CreateTripData {
   passengerId: string;
@@ -24,7 +25,10 @@ export interface CreateTripData {
 export class TripsRepository {
   private readonly logger = new Logger(TripsRepository.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly replicaService: PrismaReplicaService,
+  ) {}
 
   async create(data: CreateTripData): Promise<Trip> {
     try {
@@ -53,7 +57,9 @@ export class TripsRepository {
 
   async findById(id: string): Promise<Trip | null> {
     try {
-      return await this.prisma.trip.findUnique({
+      // Story 2.2: Use read replica for SELECT queries
+      const readClient = this.replicaService.getReadClient();
+      return await readClient.trip.findUnique({
         where: { id },
       });
     } catch (error) {
@@ -63,7 +69,9 @@ export class TripsRepository {
 
   async findByPassengerId(passengerId: string): Promise<Trip[]> {
     try {
-      return await this.prisma.trip.findMany({
+      // Story 2.2: Use read replica for trip history queries (read-heavy)
+      const readClient = this.replicaService.getReadClient();
+      return await readClient.trip.findMany({
         where: { passengerId },
         orderBy: { createdAt: 'desc' },
       });

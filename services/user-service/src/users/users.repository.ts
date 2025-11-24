@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { PrismaReplicaService } from '../database/database-replica.service';
 import { User, Prisma } from '@prisma/client';
 
 /**
@@ -8,7 +9,10 @@ import { User, Prisma } from '@prisma/client';
  */
 @Injectable()
 export class UsersRepository {
-  constructor(private readonly prisma: DatabaseService) {}
+  constructor(
+    private readonly prisma: DatabaseService,
+    private readonly replicaService: PrismaReplicaService,
+  ) {}
 
   /**
    * Find user by ID
@@ -16,7 +20,9 @@ export class UsersRepository {
    * @returns User or null if not found
    */
   async findById(userId: string): Promise<User | null> {
-    return await this.prisma.user.findUnique({
+    // Story 2.2: Use read replica for SELECT queries
+    const readClient = this.replicaService.getReadClient();
+    return await readClient.user.findUnique({
       where: { id: userId },
     });
   }
@@ -27,7 +33,9 @@ export class UsersRepository {
    * @returns User or null if not found
    */
   async findByEmail(email: string): Promise<User | null> {
-    return await this.prisma.user.findUnique({
+    // Story 2.2: Use read replica for SELECT queries
+    const readClient = this.replicaService.getReadClient();
+    return await readClient.user.findUnique({
       where: { email },
     });
   }
