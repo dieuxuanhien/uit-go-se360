@@ -24,6 +24,7 @@ RUN pnpm install --frozen-lockfile
 
 # Build shared packages
 RUN cd packages/shared-types && pnpm build
+RUN cd packages/common-utils && pnpm build
 
 # Generate Prisma client
 WORKDIR /app/services/trip-service

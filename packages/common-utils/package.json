@@ -1,11 +1,34 @@
 {
-  "name": "@uit-go/common-utils",
+  "name": "@uit-go-se360/common-utils",
   "version": "0.1.0",
   "description": "Common utility functions and helpers",
   "private": true,
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./aws": {
+      "require": "./dist/aws/index.js",
+      "import": "./dist/aws/index.js",
+      "types": "./dist/aws/index.d.ts"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "aws": ["dist/aws/index.d.ts"],
+      "*": ["dist/index.d.ts"]
+    }
+  },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc --project tsconfig.build.json"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sns": "^3.936.0",
+    "@aws-sdk/client-sqs": "^3.936.0"
   },
   "devDependencies": {}
 }

@@ -91,7 +91,47 @@ pnpm install
 
 This installs dependencies for the root workspace, services, and shared packages.
 
-### Step 3: Configure Environment
+### Step 3: Build Shared Packages ⚠️ REQUIRED
+
+**Critical:** Services depend on pre-built shared packages. You must build them before starting services.
+
+```bash
+# Build common-utils package (AWS SDK utilities)
+cd packages/common-utils
+pnpm run build
+
+# Return to project root
+cd ../..
+```
+
+**Expected output:**
+```
+> @uit-go-se360/common-utils@0.1.0 build
+> tsc --project tsconfig.build.json
+
+✅ Successfully built to dist/
+```
+
+**Verify:**
+```bash
+ls -la packages/common-utils/dist/
+# Should show: index.js, index.d.ts, aws/ directory
+```
+
+**Why this is needed:**
+- Services import from `@uit-go-se360/common-utils/aws`
+- Docker containers expect pre-compiled JavaScript files in `packages/*/dist/`
+- Without this step, services will fail with "Cannot find module" errors
+
+### Step 4: Generate Prisma Clients
+
+```bash
+pnpm run prisma:generate
+```
+
+This generates type-safe Prisma clients for both User and Trip services.
+
+### Step 5: Configure Environment
 
 ```bash
 cp .env.example .env
@@ -99,10 +139,14 @@ cp .env.example .env
 
 The `.env` file contains all required configuration. Default values work for local development.
 
-### Step 4: Start Database Services
+### Step 6: Start Infrastructure Services
 
 ```bash
+# Option A: Standard stack (PostgreSQL + Redis only)
 docker compose up -d
+
+# Option B: Hybrid stack (+ LocalStack for AWS emulation)
+docker-compose -f docker-compose.yml -f docker-compose.localstack.yml up -d
 ```
 
 This starts:
@@ -110,8 +154,9 @@ This starts:
 - PostgreSQL for User Service (port 5432)
 - PostgreSQL for Trip Service (port 5433)
 - Redis (port 6379)
+- LocalStack (port 4566) - if using hybrid stack
 
-### Step 5: Verify Setup
+### Step 7: Verify Setup
 
 ```bash
 # Test databases are running

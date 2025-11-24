@@ -1,0 +1,36 @@
+version: '3.8'
+
+# Hybrid Infrastructure: LocalStack (AWS services) + Real Postgres/Redis
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.localstack.yml up -d
+
+services:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # LocalStack - AWS Service Emulation (FREE tier)
+  # Provides: SNS, SQS, API Gateway, CloudWatch
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  localstack:
+    image: localstack/localstack:latest
+    container_name: uitgo-localstack
+    ports:
+      - '4566:4566'            # LocalStack gateway (all AWS services)
+      - '4510-4559:4510-4559'  # External service port range
+    environment:
+      - SERVICES=sns,sqs,apigateway,cloudwatch,sts,iam
+      - DEBUG=1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DATA_DIR=/var/lib/localstack/data
+    volumes:
+      - './infrastructure/localstack:/etc/localstack/init/ready.d'  # Init scripts
+      - 'localstack-data:/var/lib/localstack'
+    networks:
+      - uitgo-network
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:4566/_localstack/health']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  localstack-data:
+    driver: local

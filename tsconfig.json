@@ -8,13 +8,13 @@
     "baseUrl": ".",
 
     "paths": {
-      "@uit-go/shared-types": ["packages/shared-types/src"],
-      "@uit-go/shared-types/*": ["packages/shared-types/src/*"],
-      "@uit-go/common-utils": ["packages/common-utils/src"],
-      "@uit-go/common-utils/*": ["packages/common-utils/src/*"],
-      "@uit-go/user-service/*": ["services/user-service/src/*"],
-      "@uit-go/trip-service/*": ["services/trip-service/src/*"],
-      "@uit-go/driver-service/*": ["services/driver-service/src/*"]
+      "@uit-go-se360/shared-types": ["packages/shared-types/src"],
+      "@uit-go-se360/shared-types/*": ["packages/shared-types/src/*"],
+      "@uit-go-se360/common-utils": ["packages/common-utils/src"],
+      "@uit-go-se360/common-utils/*": ["packages/common-utils/src/*"],
+      "@uit-go-se360/user-service/*": ["services/user-service/src/*"],
+      "@uit-go-se360/trip-service/*": ["services/trip-service/src/*"],
+      "@uit-go-se360/driver-service/*": ["services/driver-service/src/*"]
     },
     "strict": true,
     "esModuleInterop": true,

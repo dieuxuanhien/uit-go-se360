@@ -16,10 +16,12 @@ import { TripDto } from './dto/trip.dto';
 import { TripLocationDto } from './dto/trip-location.dto';
 import { DriverServiceClient } from '../drivers/driver-service.client';
 import { TripStateMachine } from './trip-state-machine';
+import { publishToTopic, getTopicArn } from '../common/aws.utils';
 
 @Injectable()
 export class TripsService {
   private readonly logger = new Logger(TripsService.name);
+  private readonly tripEventsTopicArn = getTopicArn('trip-events');
 
   constructor(
     private readonly tripsRepository: TripsRepository,
@@ -59,40 +61,56 @@ export class TripsService {
         status: TripStatus.REQUESTED,
       });
 
-      this.logger.log('Trip created, searching for drivers...', {
+      const beforePublish = Date.now();
+      
+      this.logger.log('Trip created, publishing event...', {
         tripId: trip.id,
         passengerId,
         distance,
         estimatedFare,
       });
 
-      // Find and notify nearby drivers (async)
-      // This runs in background - we don't wait for it to complete
-      setImmediate(async () => {
-        try {
-          const result =
-            await this.driverNotificationService.findAndNotifyDrivers(
-              trip.id,
-              dto.pickupLatitude,
-              dto.pickupLongitude,
-            );
-
-          if (result.driversNotified > 0) {
-            this.logger.log('Drivers notified successfully', {
-              tripId: trip.id,
-              driversNotified: result.driversNotified,
-            });
-          } else {
-            this.logger.warn('No drivers available for trip', {
-              tripId: trip.id,
-            });
-          }
-        } catch (error) {
-          this.logger.error('Failed to notify drivers', {
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // Story 2.1: Publish TripRequested event to SNS (async, non-blocking)
+      // Fire-and-forget: Don't await to avoid blocking HTTP response
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      publishToTopic(
+        this.tripEventsTopicArn,
+        {
+          eventType: 'TripRequested',
+          tripId: trip.id,
+          passengerId: trip.passengerId,
+          pickupLatitude: dto.pickupLatitude,
+          pickupLongitude: dto.pickupLongitude,
+          pickupAddress: dto.pickupAddress,
+          destinationLatitude: dto.destinationLatitude,
+          destinationLongitude: dto.destinationLongitude,
+          destinationAddress: dto.destinationAddress,
+          estimatedFare: trip.estimatedFare,
+          estimatedDistance: trip.estimatedDistance,
+          requestedAt: trip.requestedAt.toISOString(),
+        },
+        'Trip Requested - Find Drivers',
+      )
+        .then(() => {
+          const publishDuration = Date.now() - beforePublish;
+          this.logger.log('TripRequested event published successfully', {
+            tripId: trip.id,
+            topicArn: this.tripEventsTopicArn,
+            publishDurationMs: publishDuration,
+          });
+        })
+        .catch((error) => {
+          this.logger.error('Failed to publish TripRequested event', {
             tripId: trip.id,
             error: error instanceof Error ? error.message : 'Unknown error',
           });
-        }
+        });
+
+      const ackTime = Date.now() - beforePublish;
+      this.logger.log('⚡ Trip creation ACK (before SNS publish completes)', {
+        tripId: trip.id,
+        ackTimeMs: ackTime,
       });
 
       return this.mapToDto(trip);

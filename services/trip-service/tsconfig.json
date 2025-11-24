@@ -19,7 +19,9 @@
     "noFallthroughCasesInSwitch": false,
     "esModuleInterop": true,
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@uit-go-se360/common-utils": ["../../packages/common-utils/dist"],
+      "@uit-go-se360/shared-types": ["../../packages/shared-types/dist"]
     }
   },
   "include": ["src/**/*"],

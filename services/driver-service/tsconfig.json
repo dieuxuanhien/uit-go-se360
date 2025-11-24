@@ -14,6 +14,10 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
+    "paths": {
+      "@uit-go-se360/common-utils": ["../../packages/common-utils/dist"],
+      "@uit-go-se360/shared-types": ["../../packages/shared-types/dist"]
+    },
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,

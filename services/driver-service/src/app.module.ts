@@ -8,6 +8,7 @@ import { RedisModule } from './redis/redis.module';
 import { DriversModule } from './drivers/drivers.module';
 import { HealthController } from './health/health.controller';
 import { JwtStrategy } from './auth/strategies/jwt.strategy';
+import { TripMatchingModule } from './trip-matching/trip-matching.module';
 import redisConfig from './config/redis.config';
 import jwtConfig from './config/jwt.config';
 
@@ -29,6 +30,7 @@ import jwtConfig from './config/jwt.config';
     }),
     RedisModule,
     DriversModule,
+    TripMatchingModule, // Story 2.1: SQS consumer for trip matching
   ],
   controllers: [AppController, HealthController],
   providers: [AppService, JwtStrategy],

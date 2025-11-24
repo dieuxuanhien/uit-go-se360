@@ -13,14 +13,17 @@ COPY pnpm-lock.yaml .
 
 # Copy service package.json
 COPY services/driver-service/package.json services/driver-service/
-RUN pnpm install --frozen-lockfile
 
 # Copy shared packages
 COPY packages packages
 
-# Install dependencies
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
 
-# Generate Prisma Client
+# Build common-utils package
+RUN cd packages/common-utils && pnpm build
+
+# Set working directory
 WORKDIR /app/services/driver-service
 
 

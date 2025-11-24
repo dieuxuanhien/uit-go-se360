@@ -165,21 +165,29 @@ workflows:
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   sprint-planning:
-    required # agent: sm
-    # Break architecture changes into implementable stories
-    # Estimate complexity and dependencies
-    # Create sprint backlog
-    # Output: docs/sprint-artifacts/sprint-status.yaml
+    docs/sprint-artifacts/sprint-status.yaml # agent: sm
+    # ✅ COMPLETED - Sprint backlog created with 25 stories across 4 epics:
+    # - Epic 1: Hybrid Infrastructure Setup (LocalStack + Real OSS) - 5 stories, 25 points
+    # - Epic 2: Optimization Implementation (6 ADR Patterns) - 6 stories, 42 points
+    # - Epic 3: Post-Optimization Testing - 5 stories, 21 points
+    # - Epic 4: Scalability Report - 5 stories, 31 points
+    # Total: 78 story points, 3-4 weeks timeline
 
   story-development:
-    required # agent: sm
-    # Implement stories incrementally
-    # Story 1: SQS/SNS integration for async matching
-    # Story 2: RDS read replicas and routing
-    # Story 3: ElastiCache cluster and caching layer
-    # Story 4: Circuit breakers and resilience
-    # Story 5: API Gateway integration
-    # Output: Working code + tests
+    in-progress # agent: sm
+    # Story 2.1: Event-Driven Async Communication (ADR-001) - ✅ COMPLETED
+    # - LocalStack SNS/SQS integration for trip-driver matching
+    # - Common-utils AWS SDK package with reusable clients
+    # - Trip-service: Fire-and-forget SNS publish on trip creation
+    # - Driver-service: SQS consumer polling driver-match-queue
+    # - Trip-service: SQS consumer for trip status updates
+    # - k6 smoke test: 30 VUs, 3 min, 2,237 trips created
+    # - Performance: p95=23.66ms (76% better than 100ms target), 0% errors
+    # - Documentation: Test execution guide, setup checklist, PR template
+    # - Output: Working code + tests + comprehensive documentation
+    # 
+    # Next: Story 2.2 - Database Read Scaling (Postgres replicas)
+    # Remaining: Stories 2.2-2.6 (Epic 2), Epic 3, Epic 4
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   # Phase 4: Optimization & Validation
@@ -210,9 +218,10 @@ workflow_path: method-brownfield-module-a
 workflow_path_file: .bmad/bmm/workflows/workflow-status/paths/method-brownfield.yaml
 
 # Current status
-current_phase: 'Phase 3: Implementation Planning'
-next_workflow: sprint-planning
+current_phase: 'Phase 3: Implementation (Epic 2, Story 2.1 DONE)'
+next_workflow: story-development
 next_agent: sm
+current_story: '2.2-database-postgres-replicas'
 
 # Notes
 notes: |
@@ -239,7 +248,18 @@ notes: |
   - ✅ Load testing plan (k6 scenarios, success criteria, distributed infrastructure, 2-week timeline)
   - ✅ Baseline performance test (1,316 trips at 20 VUs, 0% errors, 49.42ms p95, production-ready confirmed)
 
-  Required:
-  - ❌ Sprint planning and story breakdown
-  - ❌ AWS deployment with auto-scaling
-  - ❌ Post-optimization testing and scalability report
+  Completed (Phase 3 - Story 2.1):
+  - ✅ Sprint planning: 25 stories, 78 points, 4 epics defined
+  - ✅ Story 2.1 (Event-Driven Async): LocalStack SNS/SQS integration
+    - Fire-and-forget pattern: p95=23.66ms (76% better than target)
+    - k6 smoke test: 2,237 trips, 30 VUs, 0% errors, 99.94% checks passed
+    - Comprehensive docs: Test guide (507 lines), setup checklist, PR template
+  - ✅ Hybrid infrastructure: LocalStack + Postgres + Redis working
+
+  In Progress:
+  - 🔄 Story 2.2: Database Read Scaling (Postgres replicas)
+
+  Remaining:
+  - ❌ Stories 2.2-2.6: Remaining Epic 2 optimizations (5 stories)
+  - ❌ Epic 3: Post-optimization testing and validation (5 stories)
+  - ❌ Epic 4: Scalability report and presentation (5 stories)

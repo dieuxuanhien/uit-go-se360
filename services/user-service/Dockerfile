@@ -10,19 +10,20 @@ RUN npm install -g pnpm
 COPY pnpm-workspace.yaml .
 COPY package.json .
 COPY pnpm-lock.yaml .
-# Install dependencies
 
 # Copy service package.json and prisma
 COPY services/user-service/package.json services/user-service/
-RUN pnpm install --frozen-lockfile
 COPY services/user-service/prisma services/user-service/prisma
 
 # Copy shared packages
 COPY packages packages
 
+# Install all dependencies (workspace + service + packages)
+RUN pnpm install --frozen-lockfile
 
 # Build shared packages
 RUN cd packages/shared-types && pnpm build
+RUN cd packages/common-utils && pnpm build
 
 # Generate Prisma Client
 WORKDIR /app/services/user-service

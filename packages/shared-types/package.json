@@ -1,5 +1,5 @@
 {
-  "name": "@uit-go/shared-types",
+  "name": "@uit-go-se360/shared-types",
   "version": "0.1.0",
   "description": "Shared TypeScript types and interfaces",
   "private": true,

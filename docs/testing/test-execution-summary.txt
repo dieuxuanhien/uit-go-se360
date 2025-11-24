@@ -25,7 +25,7 @@
   ✅ Setup complete: 40 users registered
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ PHASE 2: RAMP-UP (3m30s - 5 stages)                                         │
+│ PHASE 2: RAMP-UP (3m30s - 5 stages)                                          │
 └──────────────────────────────────────────────────────────────────────────────┘
   
   Stage 1: Warm-up   (30s)  │ 0 ────────► 10 VUs │ Gradual ramp
@@ -40,8 +40,8 @@
   │ 3. Select random pickup/dropoff locations            │
   │ 4. POST /trips (with Authorization header)           │
   │ 5. Validate: HTTP 201, trip.id, estimatedFare        │
-  │ 6. Sleep 2s                                           │
-  │ 7. Repeat                                             │
+  │ 6. Sleep 2s                                          │
+  │ 7. Repeat                                            │
   └──────────────────────────────────────────────────────┘
   
   Total iterations: 1,316 complete
