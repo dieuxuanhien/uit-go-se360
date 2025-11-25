@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
+import { CacheModule } from './cache/cache.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DriverProfilesModule } from './driver-profiles/driver-profiles.module';
 import { validationSchema } from './config/validation.schema';
 import jwtConfig from './config/jwt.config';
+import cacheConfig from './config/cache.config';
 
 @Module({
   imports: [
@@ -14,9 +16,10 @@ import jwtConfig from './config/jwt.config';
       isGlobal: true,
       envFilePath: '.env',
       validationSchema,
-      load: [jwtConfig],
+      load: [jwtConfig, cacheConfig],
     }),
     DatabaseModule,
+    CacheModule,
     HealthModule,
     AuthModule,
     UsersModule,

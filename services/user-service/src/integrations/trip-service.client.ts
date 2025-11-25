@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { lastValueFrom } from 'rxjs';
-import { TripDto } from '@uit-go/shared-types';
+import { TripDto } from '@uit-go-se360/shared-types';
 
 /**
  * Trip Service Client

@@ -14,8 +14,10 @@
     "noImplicitReturns": true,
     "types": ["jest", "node"],
     "paths": {
-      "@uit-go/shared-types": ["../../packages/shared-types/dist"],
-      "@uit-go/shared-types/*": ["../../packages/shared-types/dist/*"]
+      "@uit-go-se360/shared-types": ["../../packages/shared-types/src"],
+      "@uit-go-se360/shared-types/*": ["../../packages/shared-types/src/*"],
+      "@uit-go-se360/common-utils/cache": ["../../packages/common-utils/src/cache"],
+      "@uit-go-se360/common-utils/aws": ["../../packages/common-utils/src/aws"]
     }
   },
   "include": ["src", "test"],

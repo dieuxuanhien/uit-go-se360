@@ -28,7 +28,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: uitgo_trip
     ports:
-      - '5433:5432'
+      - '5443:5432'
     volumes:
       - postgres-trip-data:/var/lib/postgresql/data
     healthcheck:
@@ -69,6 +69,21 @@ services:
       DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-user-replica-2:5432/uitgo_user?schema=public
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
       JWT_EXPIRES_IN: 7d
+      # Redis Cluster Configuration (Story 2.3)
+      REDIS_NODE_1_HOST: redis-node-1
+      REDIS_NODE_1_PORT: 6379
+      REDIS_NODE_2_HOST: redis-node-2
+      REDIS_NODE_2_PORT: 6379
+      REDIS_NODE_3_HOST: redis-node-3
+      REDIS_NODE_3_PORT: 6379
+      REDIS_NODE_4_HOST: redis-node-4
+      REDIS_NODE_4_PORT: 6379
+      REDIS_NODE_5_HOST: redis-node-5
+      REDIS_NODE_5_PORT: 6379
+      REDIS_NODE_6_HOST: redis-node-6
+      REDIS_NODE_6_PORT: 6379
+      CACHE_TTL_USER: 3600
+      CACHE_TTL_DRIVER_PROFILE: 1800
       # AWS/LocalStack Configuration
       AWS_REGION: us-east-1
       AWS_ENDPOINT_URL: http://localstack:4566

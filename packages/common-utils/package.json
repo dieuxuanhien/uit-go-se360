@@ -15,11 +15,17 @@
       "require": "./dist/aws/index.js",
       "import": "./dist/aws/index.js",
       "types": "./dist/aws/index.d.ts"
+    },
+    "./cache": {
+      "require": "./dist/cache/index.js",
+      "import": "./dist/cache/index.js",
+      "types": "./dist/cache/index.d.ts"
     }
   },
   "typesVersions": {
     "*": {
       "aws": ["dist/aws/index.d.ts"],
+      "cache": ["dist/cache/index.d.ts"],
       "*": ["dist/index.d.ts"]
     }
   },
@@ -28,7 +34,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-sns": "^3.936.0",
-    "@aws-sdk/client-sqs": "^3.936.0"
+    "@aws-sdk/client-sqs": "^3.936.0",
+    "ioredis": "^5.3.1"
   },
   "devDependencies": {}
 }

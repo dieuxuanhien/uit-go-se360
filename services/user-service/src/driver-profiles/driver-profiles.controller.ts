@@ -19,7 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { DriverProfilesService } from './driver-profiles.service';
 import { CreateDriverProfileDto } from './dto/create-driver-profile.dto';
-import { DriverProfileDTO } from '@uit-go/shared-types';
+import { DriverProfileDTO } from '@uit-go-se360/shared-types';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 
 @ApiTags('Driver Profiles')

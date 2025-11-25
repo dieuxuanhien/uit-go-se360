@@ -12,7 +12,7 @@ import {
   DriverProfileDTO,
   DriverApprovalStatus,
   UserRole,
-} from '@uit-go/shared-types';
+} from '@uit-go-se360/shared-types';
 import { DatabaseService } from '../database/database.service';
 
 @Injectable()
