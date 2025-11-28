@@ -182,24 +182,17 @@ services:
         condition: service_healthy
     networks:
       - uitgo-network
-    command: >
-      sh -c "
-        echo '⏳ Waiting for Redis nodes to be ready...';
-        sleep 5;
-        echo '🔧 Creating Redis Cluster (3 primaries + 3 replicas)...';
-        redis-cli --cluster create 
-          redis-node-1:6379 
-          redis-node-2:6379 
-          redis-node-3:6379 
-          redis-node-4:6379 
-          redis-node-5:6379 
-          redis-node-6:6379 
-          --cluster-replicas 1 
-          --cluster-yes;
-        echo '✅ Redis Cluster initialized successfully!';
-        echo '📊 Cluster status:';
-        redis-cli -h redis-node-1 cluster info;
-      "
+    command:
+      - sh
+      - -c
+      - |
+        echo '⏳ Waiting for Redis nodes to be ready...'
+        sleep 5
+        echo '🔧 Creating Redis Cluster (3 primaries + 3 replicas)...'
+        redis-cli --cluster create redis-node-1:6379 redis-node-2:6379 redis-node-3:6379 redis-node-4:6379 redis-node-5:6379 redis-node-6:6379 --cluster-replicas 1 --cluster-yes
+        echo '✅ Redis Cluster initialized successfully!'
+        echo '📊 Cluster status:'
+        redis-cli -h redis-node-1 cluster info
 
 volumes:
   redis-node-1-data:

@@ -1,0 +1,24 @@
+# Redis Cluster Override for driver-service
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.redis-cluster.yml -f docker-compose.redis-cluster-override.yml up -d
+#
+# This overrides driver-service to use Redis Cluster instead of standalone Redis
+
+version: '3.8'
+
+services:
+  driver-service:
+    environment:
+      # Enable Redis Cluster mode
+      REDIS_CLUSTER_MODE: 'true'
+      REDIS_CLUSTER_NODES: 'redis-node-1:6379,redis-node-2:6379,redis-node-3:6379,redis-node-4:6379,redis-node-5:6379,redis-node-6:6379'
+      # Disable standalone Redis config
+      REDIS_HOST: ''
+      REDIS_PORT: ''
+      REDIS_DB: ''
+    depends_on:
+      redis-node-1:
+        condition: service_healthy
+      redis-node-2:
+        condition: service_healthy
+      redis-node-3:
+        condition: service_healthy

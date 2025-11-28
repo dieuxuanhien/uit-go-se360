@@ -102,14 +102,19 @@ workflows:
 
   architecture-decision-records:
     docs/adrs/ # agent: architect
-    # ✅ COMPLETED - 6 comprehensive ADRs created:
-    # - ADR-001: Event-driven async communication (SNS/SQS, 100x throughput, 70% cost reduction)
-    # - ADR-002: Database read scaling (RDS replicas, 10x capacity, $0.0083/user)
-    # - ADR-003: Distributed caching (ElastiCache Redis, 90% hit rate, 87% cost savings at scale)
-    # - ADR-004: Resilience patterns (Circuit breakers, 15x faster MTTR, 99.98% cost reduction)
-    # - ADR-005: API Gateway + WAF (DDoS protection, saves $89k/year, rate limiting)
-    # - ADR-006: Auto-scaling infrastructure (ECS Fargate, 73% savings, 50x scalability)
-    # All ADRs include quantitative trade-off analysis, cost comparisons, alternatives considered
+    # ✅ MODULE A: 4 ADRs IMPLEMENTED (Scope reduced from 6)
+    # - ADR-001: Event-driven async communication (SNS/SQS, 100x throughput, 70% cost reduction) ✅
+    # - ADR-002: Database read scaling (RDS replicas, 10x capacity, $0.0083/user) ✅
+    # - ADR-003: Distributed caching (ElastiCache Redis, 90% hit rate, 87% cost savings) ✅
+    # - ADR-006: Auto-scaling infrastructure (ECS Fargate, 73% savings, 50x scalability) 🔄
+    # 
+    # ⏸️ DEFERRED TO OTHER MODULES:
+    # - ADR-004: Resilience patterns → Module B (Reliability)
+    # - ADR-005: API Gateway + WAF → Module C (Security)
+    # 
+    # Rationale: Container orchestration (Docker restart, ECS auto-recovery) provides
+    # infrastructure-level resilience. Module A focuses purely on capacity/performance.
+    # Decision documented in docs/architecture/module-a-adr-scope-decision.md
 
   solutioning-gate-check:
     docs/architecture/solutioning-gate-check.md # agent: architect

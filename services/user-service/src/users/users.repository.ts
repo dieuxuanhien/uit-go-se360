@@ -33,20 +33,22 @@ export class UsersRepository {
   async findById(userId: string): Promise<User | null> {
     const cacheKey = `user:${userId}`;
 
-    // Step 1: Try cache first
-    const cached = await this.cacheService.get<User>(cacheKey);
-    if (cached) {
-      return cached;
+    // Step 1: Try cache first (if available)
+    if (this.cacheService) {
+      const cached = await this.cacheService.get<User>(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
-    // Step 2: Cache miss - fetch from read replica
+    // Step 2: Cache miss (or no cache) - fetch from read replica
     const readClient = this.replicaService.getReadClient();
     const user = await readClient.user.findUnique({
       where: { id: userId },
     });
 
-    // Step 3: Store in cache if found
-    if (user) {
+    // Step 3: Store in cache if found (if cache available)
+    if (user && this.cacheService) {
       await this.cacheService.set(cacheKey, user, this.userTTL);
     }
 
@@ -62,20 +64,22 @@ export class UsersRepository {
   async findByEmail(email: string): Promise<User | null> {
     const cacheKey = `user:email:${email}`;
 
-    // Try cache first
-    const cached = await this.cacheService.get<User>(cacheKey);
-    if (cached) {
-      return cached;
+    // Try cache first (if available)
+    if (this.cacheService) {
+      const cached = await this.cacheService.get<User>(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
-    // Cache miss - fetch from read replica
+    // Cache miss (or no cache) - fetch from read replica
     const readClient = this.replicaService.getReadClient();
     const user = await readClient.user.findUnique({
       where: { email },
     });
 
-    // Store in cache if found
-    if (user) {
+    // Store in cache if found (if cache available)
+    if (user && this.cacheService) {
       await this.cacheService.set(cacheKey, user, this.userTTL);
       // Also cache by ID for consistency
       await this.cacheService.set(`user:${user.id}`, user, this.userTTL);
@@ -95,9 +99,11 @@ export class UsersRepository {
       data,
     });
 
-    // Write-through: Cache the newly created user
-    await this.cacheService.set(`user:${user.id}`, user, this.userTTL);
-    await this.cacheService.set(`user:email:${user.email}`, user, this.userTTL);
+    // Write-through: Cache the newly created user (if cache available)
+    if (this.cacheService) {
+      await this.cacheService.set(`user:${user.id}`, user, this.userTTL);
+      await this.cacheService.set(`user:email:${user.email}`, user, this.userTTL);
+    }
 
     return user;
   }
@@ -115,9 +121,11 @@ export class UsersRepository {
       data,
     });
 
-    // Invalidate cache - will be refreshed on next read
-    await this.cacheService.delete(`user:${userId}`);
-    await this.cacheService.delete(`user:email:${user.email}`);
+    // Invalidate cache - will be refreshed on next read (if cache available)
+    if (this.cacheService) {
+      await this.cacheService.delete(`user:${userId}`);
+      await this.cacheService.delete(`user:email:${user.email}`);
+    }
 
     return user;
   }
@@ -133,9 +141,11 @@ export class UsersRepository {
       where: { id: userId },
     });
 
-    // Invalidate cache
-    await this.cacheService.delete(`user:${userId}`);
-    await this.cacheService.delete(`user:email:${user.email}`);
+    // Invalidate cache (if cache available)
+    if (this.cacheService) {
+      await this.cacheService.delete(`user:${userId}`);
+      await this.cacheService.delete(`user:email:${user.email}`);
+    }
 
     return user;
   }

@@ -114,11 +114,17 @@ services:
       NODE_ENV: development
       LOG_LEVEL: debug
       DRIVER_SERVICE_PORT: 3003
+      # Redis Configuration (standalone mode - default)
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
+      # Redis Cluster Configuration (set REDIS_CLUSTER_MODE=true to enable)
+      # REDIS_CLUSTER_MODE: 'true'
+      # REDIS_CLUSTER_NODES: 'redis-node-1:6379,redis-node-2:6379,redis-node-3:6379,redis-node-4:6379,redis-node-5:6379,redis-node-6:6379'
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
       JWT_EXPIRES_IN: 7d
+      # Internal API key for service-to-service calls
+      INTERNAL_API_KEY: uitgo-internal-secret-key-change-in-production
       # AWS/LocalStack Configuration
       AWS_REGION: us-east-1
       AWS_ENDPOINT_URL: http://localstack:4566
@@ -151,9 +157,11 @@ services:
       PORT: 3002
       DRIVER_SERVICE_PORT: 3003
       DRIVER_SERVICE_URL: http://driver-service:3003
-      DATABASE_URL: postgresql://postgres:postgres@postgres-trip:5432/uitgo_trip?schema=public
-      DATABASE_REPLICA1_URL: postgresql://postgres:postgres@postgres-trip-replica-1:5432/uitgo_trip?schema=public
-      DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-trip-replica-2:5432/uitgo_trip?schema=public
+      # Internal API key for calling driver-service
+      INTERNAL_API_KEY: uitgo-internal-secret-key-change-in-production
+      DATABASE_URL: postgresql://postgres:postgres@postgres-trip:5432/uitgo_trip?schema=public&connection_limit=20&pool_timeout=30
+      DATABASE_REPLICA1_URL: postgresql://postgres:postgres@postgres-trip-replica-1:5432/uitgo_trip?schema=public&connection_limit=10&pool_timeout=30
+      DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-trip-replica-2:5432/uitgo_trip?schema=public&connection_limit=10&pool_timeout=30
       # AWS/LocalStack Configuration
       AWS_REGION: us-east-1
       AWS_ENDPOINT_URL: http://localstack:4566
@@ -171,7 +179,9 @@ services:
       start_period: 10s
       retries: 3
     networks:
-      - uitgo-network
+      uitgo-network:
+        aliases:
+          - trip-service  # DNS alias for load balancing
     volumes:
       - ./services/trip-service/src:/app/services/trip-service/src:ro
     command: sh -c "npx prisma migrate deploy && node dist/main"
@@ -199,4 +209,5 @@ volumes:
 
 networks:
   uitgo-network:
+    name: uitgo-network
     driver: bridge

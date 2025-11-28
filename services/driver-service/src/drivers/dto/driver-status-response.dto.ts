@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class DriverStatusResponseDto {
   @ApiProperty({
@@ -13,6 +13,19 @@ export class DriverStatusResponseDto {
     example: true,
   })
   isOnline: boolean;
+
+  @ApiProperty({
+    description: 'Driver availability for new trips (false when serving a trip)',
+    example: true,
+  })
+  isAvailable: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Current trip ID if driver is serving a passenger',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    format: 'uuid',
+  })
+  currentTripId?: string | null;
 
   @ApiProperty({
     description: 'Status update timestamp',

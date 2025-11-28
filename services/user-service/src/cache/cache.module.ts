@@ -15,7 +15,10 @@ import { CacheService } from './cache.service';
         const nodes = configService.get('cache.nodes', []);
         
         if (nodes.length === 0) {
-          throw new Error('Redis cluster nodes not configured');
+          console.warn('[CacheModule] ⚠️ Redis cluster nodes not configured - caching disabled');
+          console.warn('[CacheModule] App will work but without caching (all queries hit database)');
+          // Return null - repositories will handle gracefully
+          return null;
         }
 
         return new CacheService({ nodes });

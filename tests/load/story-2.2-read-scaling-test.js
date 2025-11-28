@@ -106,49 +106,40 @@ export default function (data) {
     readQuerySuccess.add(readSuccess ? 1 : 0);
     
     sleep(0.5);
-  }
-  
-  // Query 2: Fetch trip history (trips.repository → replica)
-  // Both passengers and drivers can query their trip history
-  const tripHistoryRes = http.get(`${BASE_URL}/trips?limit=20`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  
-  check(tripHistoryRes, {
-    'trip history status': (r) => r.status === 200 || r.status === 404,
-    'trip history is array': (r) => {
-      if (r.status !== 200) return true; // 404 is acceptable
-      try {
-        const data = JSON.parse(r.body);
-        return Array.isArray(data) || Array.isArray(data.trips);
-      } catch (e) {
-        return false;
-      }
-    },
-  });
-  
-  sleep(0.4);
-  
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // Write query (10% of traffic - should hit primary)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  
-  if (isDriver && Math.random() < 0.1) { // 10% write operations (drivers only)
-    const updateProfileRes = http.patch(`${BASE_URL}/users/driver-profile`, JSON.stringify({
-      vehicleType: Math.random() < 0.5 ? 'CAR' : 'BIKE',
-    }), {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+  } else {
+    // Query 2: For passengers, fetch user profile (also tests read replicas)
+    const startRead = Date.now();
+    const profileRes = http.get(`${BASE_URL}/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const readDuration = Date.now() - startRead;
+    
+    const readSuccess = check(profileRes, {
+      'passenger profile status 200': (r) => r.status === 200,
+      'passenger profile has data': (r) => {
+        try {
+          const data = JSON.parse(r.body);
+          return data.id && data.email;
+        } catch (e) {
+          return false;
+        }
       },
+      'read query fast': (r) => r.timings.duration < 150,
     });
     
-    check(updateProfileRes, {
-      'profile updated': (r) => r.status === 200,
-    });
+    readQueryDuration.add(readDuration);
+    readQuerySuccess.add(readSuccess ? 1 : 0);
     
-    sleep(1); // Longer sleep after write
+    sleep(0.5);
   }
+  
+  // Note: GET /trips endpoint for trip history not yet implemented
+  // Will add in future story (currently only GET /trips/:id exists)
+  
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Story 2.2: Pure READ test - no writes needed for replica testing
+  // Write operations (PATCH endpoint) not implemented yet - will add in future story
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   
   sleep(1); // Base sleep between iterations
 }
@@ -156,6 +147,6 @@ export default function (data) {
 export function teardown(data) {
   console.log('\n📊 Story 2.2 Read Scaling Test Complete');
   console.log(`  Tested with ${Object.keys(data.authTokens).length} authenticated users`);
-  console.log('  Read-heavy traffic pattern: 90% reads, 10% writes');
+  console.log('  Read-only traffic pattern: 100% reads (replica testing)');
   console.log('  Target: p95 read latency <150ms (vs 800ms baseline single DB)');
 }

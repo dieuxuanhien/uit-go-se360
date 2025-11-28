@@ -22,6 +22,7 @@ export class DriversService {
   private readonly LOCATION_KEY_PREFIX = 'driver:location:';
   private readonly GEO_INDEX_KEY = 'driver:geo';
   private readonly ONLINE_DRIVERS_SET = 'driver:online';
+  private readonly AVAILABLE_DRIVERS_SET = 'driver:available'; // NEW: Track available drivers
 
   constructor(private readonly redisService: RedisService) {}
 
@@ -37,24 +38,48 @@ export class DriversService {
     }
 
     const timestamp = new Date().toISOString();
-    const statusData = {
-      driverId,
-      isOnline,
-      timestamp,
-    };
-
     const key = `${this.STATUS_KEY_PREFIX}${driverId}`;
 
     try {
+      // Get existing status to preserve availability info
+      const existingJson = await this.redisService.get(key);
+      let currentTripId: string | null = null;
+      
+      // When going online, driver is available by default
+      // When going offline, driver is not available
+      let isAvailable = isOnline;
+      
+      if (existingJson) {
+        const existing = JSON.parse(existingJson);
+        // Preserve currentTripId if exists and going online
+        if (isOnline && existing.currentTripId) {
+          currentTripId = existing.currentTripId;
+          isAvailable = false; // Still on a trip
+        }
+      }
+
+      const statusData: DriverStatusResponseDto = {
+        driverId,
+        isOnline,
+        isAvailable,
+        currentTripId,
+        timestamp,
+      };
+
       // Store status in Redis with TTL
       await this.redisService.set(key, JSON.stringify(statusData), 'EX', this.STATUS_TTL);
 
       // Update online drivers set
       if (isOnline) {
         await this.redisService.sadd(this.ONLINE_DRIVERS_SET, driverId);
-        this.logger.log(`Driver ${driverId} is now ONLINE`);
+        // Also add to available set if available
+        if (isAvailable) {
+          await this.redisService.sadd(this.AVAILABLE_DRIVERS_SET, driverId);
+        }
+        this.logger.log(`Driver ${driverId} is now ONLINE (available: ${isAvailable})`);
       } else {
         await this.redisService.srem(this.ONLINE_DRIVERS_SET, driverId);
+        await this.redisService.srem(this.AVAILABLE_DRIVERS_SET, driverId);
         // Remove from geospatial index when going offline
         await this.redisService.zrem(this.GEO_INDEX_KEY, driverId);
         this.logger.log(`Driver ${driverId} is now OFFLINE`);
@@ -83,6 +108,10 @@ export class DriversService {
       }
 
       const status = JSON.parse(statusJson);
+      // Ensure backward compatibility - default isAvailable to isOnline if not set
+      if (status.isAvailable === undefined) {
+        status.isAvailable = status.isOnline;
+      }
       return status;
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -90,6 +119,68 @@ export class DriversService {
       }
       this.logger.error('Failed to retrieve driver status', { driverId, error });
       throw new ServiceUnavailableException('Status service temporarily unavailable');
+    }
+  }
+
+  /**
+   * Update driver availability (called when driver is assigned/released from trip)
+   * This is typically called by trip-service via internal API or event handler
+   */
+  async updateAvailability(
+    driverId: string,
+    isAvailable: boolean,
+    tripId?: string,
+  ): Promise<DriverStatusResponseDto> {
+    // Validate UUID
+    if (!this.isValidUuid(driverId)) {
+      throw new Error('Invalid driver ID format');
+    }
+
+    const key = `${this.STATUS_KEY_PREFIX}${driverId}`;
+    const timestamp = new Date().toISOString();
+
+    try {
+      // Get current status
+      const statusJson = await this.redisService.get(key);
+
+      if (!statusJson) {
+        throw new NotFoundException(`Driver status not found for ID: ${driverId}`);
+      }
+
+      const currentStatus = JSON.parse(statusJson);
+
+      // Driver must be online to update availability
+      if (!currentStatus.isOnline) {
+        throw new ForbiddenException('Driver must be online to update availability');
+      }
+
+      const statusData: DriverStatusResponseDto = {
+        driverId,
+        isOnline: currentStatus.isOnline,
+        isAvailable,
+        currentTripId: isAvailable ? null : (tripId || currentStatus.currentTripId),
+        timestamp,
+      };
+
+      // Store updated status
+      await this.redisService.set(key, JSON.stringify(statusData), 'EX', this.STATUS_TTL);
+
+      // Update available drivers set
+      if (isAvailable) {
+        await this.redisService.sadd(this.AVAILABLE_DRIVERS_SET, driverId);
+        this.logger.log(`Driver ${driverId} is now AVAILABLE`);
+      } else {
+        await this.redisService.srem(this.AVAILABLE_DRIVERS_SET, driverId);
+        this.logger.log(`Driver ${driverId} is now UNAVAILABLE (tripId: ${tripId})`);
+      }
+
+      return statusData;
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.logger.error('Failed to update driver availability', { driverId, error });
+      throw new ServiceUnavailableException('Availability service temporarily unavailable');
     }
   }
 
@@ -247,15 +338,21 @@ export class DriversService {
         distanceMap[driverId] = distanceKm;
       }
 
-      // Fetch metadata for all drivers
+      // Fetch metadata for all drivers (location + status)
       const metadataKeys = driverIds.map((id) => `${this.LOCATION_KEY_PREFIX}${id}`);
-      const metadataValues = await this.redisService.mget(...metadataKeys);
+      const statusKeys = driverIds.map((id) => `${this.STATUS_KEY_PREFIX}${id}`);
+      
+      const [metadataValues, statusValues] = await Promise.all([
+        this.redisService.mget(...metadataKeys),
+        this.redisService.mget(...statusKeys),
+      ]);
 
-      // Parse metadata and filter to online drivers only
-      const onlineDrivers: NearbyDriverResponseDto[] = [];
+      // Parse metadata and filter to online AND available drivers only
+      const availableDrivers: NearbyDriverResponseDto[] = [];
 
       for (let i = 0; i < metadataValues.length; i++) {
         const metadataJson = metadataValues[i];
+        const statusJson = statusValues[i];
 
         if (!metadataJson) {
           // Key expired or doesn't exist, skip
@@ -264,10 +361,24 @@ export class DriversService {
 
         try {
           const metadata = JSON.parse(metadataJson);
+          
+          // Check status for availability
+          let isAvailable = true; // Default to available if no status found
+          if (statusJson) {
+            const status = JSON.parse(statusJson);
+            // Driver must be both online AND available
+            if (!status.isOnline) {
+              continue; // Skip offline drivers
+            }
+            // If driver is explicitly marked as unavailable, exclude them
+            if (status.isAvailable === false) {
+              isAvailable = false;
+            }
+          }
 
-          // Only include online drivers
-          if (metadata.isOnline) {
-            onlineDrivers.push({
+          // Only include online AND available drivers
+          if (metadata.isOnline && isAvailable) {
+            availableDrivers.push({
               driverId: metadata.driverId,
               latitude: metadata.latitude,
               longitude: metadata.longitude,
@@ -288,14 +399,15 @@ export class DriversService {
         latitude,
         longitude,
         radius,
-        totalFound: onlineDrivers.length,
+        totalFound: availableDrivers.length,
+        totalInGeo: driverIds.length,
         executionTimeMs,
       });
 
       return {
-        drivers: onlineDrivers,
+        drivers: availableDrivers,
         searchRadius: radius,
-        totalFound: onlineDrivers.length,
+        totalFound: availableDrivers.length,
       };
     } catch (error) {
       this.logger.error('Redis geospatial search failed', {

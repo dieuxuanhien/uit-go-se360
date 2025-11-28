@@ -31,10 +31,12 @@ export class DriverProfilesRepository {
         },
       });
 
-      // Story 2.3: Write-through - cache newly created profile
-      await this.cacheService.set(`driver:user:${profile.userId}`, profile, this.driverProfileTTL);
-      await this.cacheService.set(`driver:plate:${profile.vehiclePlate}`, profile, this.driverProfileTTL);
-      await this.cacheService.set(`driver:license:${profile.licenseNumber}`, profile, this.driverProfileTTL);
+      // Story 2.3: Write-through - cache newly created profile (if cache available)
+      if (this.cacheService) {
+        await this.cacheService.set(`driver:user:${profile.userId}`, profile, this.driverProfileTTL);
+        await this.cacheService.set(`driver:plate:${profile.vehiclePlate}`, profile, this.driverProfileTTL);
+        await this.cacheService.set(`driver:license:${profile.licenseNumber}`, profile, this.driverProfileTTL);
+      }
 
       return profile;
     } catch (error: unknown) {
@@ -68,13 +70,15 @@ export class DriverProfilesRepository {
   async findByUserId(userId: string): Promise<DriverProfile | null> {
     const cacheKey = `driver:user:${userId}`;
 
-    // Story 2.3: Cache-aside pattern
-    const cached = await this.cacheService.get<DriverProfile>(cacheKey);
-    if (cached) {
-      return cached;
+    // Story 2.3: Cache-aside pattern (if cache available)
+    if (this.cacheService) {
+      const cached = await this.cacheService.get<DriverProfile>(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
-    // Cache miss - fetch from read replica
+    // Cache miss (or no cache) - fetch from read replica
     const readClient = this.replicaService.getReadClient();
     const profile = await readClient.driverProfile.findUnique({
       where: { userId },
@@ -83,8 +87,8 @@ export class DriverProfilesRepository {
       },
     });
 
-    // Store in cache if found
-    if (profile) {
+    // Store in cache if found (if cache available)
+    if (profile && this.cacheService) {
       await this.cacheService.set(cacheKey, profile, this.driverProfileTTL);
     }
 
@@ -96,20 +100,22 @@ export class DriverProfilesRepository {
   ): Promise<DriverProfile | null> {
     const cacheKey = `driver:plate:${vehiclePlate}`;
 
-    // Cache-aside pattern
-    const cached = await this.cacheService.get<DriverProfile>(cacheKey);
-    if (cached) {
-      return cached;
+    // Cache-aside pattern (if cache available)
+    if (this.cacheService) {
+      const cached = await this.cacheService.get<DriverProfile>(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
-    // Cache miss - fetch from read replica
+    // Cache miss (or no cache) - fetch from read replica
     const readClient = this.replicaService.getReadClient();
     const profile = await readClient.driverProfile.findUnique({
       where: { vehiclePlate },
     });
 
-    // Store in cache if found
-    if (profile) {
+    // Store in cache if found (if cache available)
+    if (profile && this.cacheService) {
       await this.cacheService.set(cacheKey, profile, this.driverProfileTTL);
     }
 
@@ -121,20 +127,22 @@ export class DriverProfilesRepository {
   ): Promise<DriverProfile | null> {
     const cacheKey = `driver:license:${licenseNumber}`;
 
-    // Cache-aside pattern
-    const cached = await this.cacheService.get<DriverProfile>(cacheKey);
-    if (cached) {
-      return cached;
+    // Cache-aside pattern (if cache available)
+    if (this.cacheService) {
+      const cached = await this.cacheService.get<DriverProfile>(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
-    // Cache miss - fetch from read replica
+    // Cache miss (or no cache) - fetch from read replica
     const readClient = this.replicaService.getReadClient();
     const profile = await readClient.driverProfile.findUnique({
       where: { licenseNumber },
     });
 
-    // Store in cache if found
-    if (profile) {
+    // Store in cache if found (if cache available)
+    if (profile && this.cacheService) {
       await this.cacheService.set(cacheKey, profile, this.driverProfileTTL);
     }
 

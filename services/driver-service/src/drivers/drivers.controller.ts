@@ -9,16 +9,18 @@ import {
   Param,
   NotFoundException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam, ApiHeader } from '@nestjs/swagger';
 import { DriversService } from './drivers.service';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
+import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { DriverStatusResponseDto } from './dto/driver-status-response.dto';
 import { DriverLocationResponseDto } from './dto/driver-location-response.dto';
 import { SearchNearbyDriversDto } from './dto/search-nearby-drivers.dto';
 import { SearchNearbyDriversResponseDto } from './dto/search-nearby-drivers-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DriverRoleGuard } from '../auth/guards/driver-role.guard';
+import { InternalApiGuard } from '../common/guards/internal-api.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('Drivers')
@@ -109,10 +111,10 @@ export class DriversController {
   }
 
   @Get('search')
-  @ApiOperation({ summary: 'Search for nearby drivers' })
+  @ApiOperation({ summary: 'Search for nearby available drivers' })
   @ApiResponse({
     status: 200,
-    description: 'Search completed successfully',
+    description: 'Search completed successfully. Returns only ONLINE and AVAILABLE drivers.',
     type: SearchNearbyDriversResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Invalid coordinates or radius' })
@@ -129,5 +131,62 @@ export class DriversController {
       searchDto.radius || 5,
       searchDto.limit || 10,
     );
+  }
+
+  @Put('availability')
+  @UseGuards(JwtAuthGuard, DriverRoleGuard)
+  @ApiOperation({ 
+    summary: 'Update driver availability for new trips',
+    description: 'Set driver as available/unavailable. Used when driver is assigned to or released from a trip.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Availability updated successfully',
+    type: DriverStatusResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Driver must be online to update availability' })
+  @ApiResponse({ status: 404, description: 'Driver status not found' })
+  @ApiResponse({ status: 503, description: 'Service unavailable' })
+  async updateAvailability(
+    @CurrentUser() user: { userId: string; email: string; role: string },
+    @Body() dto: UpdateAvailabilityDto,
+  ): Promise<DriverStatusResponseDto> {
+    this.logger.log(`Updating availability for driver ${user.userId} to ${dto.isAvailable} (tripId: ${dto.tripId})`);
+    return this.driversService.updateAvailability(user.userId, dto.isAvailable, dto.tripId);
+  }
+
+  @Put(':driverId/availability')
+  @UseGuards(InternalApiGuard)
+  @ApiOperation({ 
+    summary: 'Update driver availability by ID (internal API)',
+    description: 'Called by trip-service when driver is assigned/released from a trip. Requires X-Internal-Api-Key header.'
+  })
+  @ApiHeader({
+    name: 'X-Internal-Api-Key',
+    description: 'Internal API key for service-to-service authentication',
+    required: true,
+  })
+  @ApiParam({
+    name: 'driverId',
+    description: 'Driver UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Availability updated successfully',
+    type: DriverStatusResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid internal API key' })
+  @ApiResponse({ status: 403, description: 'Driver must be online' })
+  @ApiResponse({ status: 404, description: 'Driver not found' })
+  @ApiResponse({ status: 503, description: 'Service unavailable' })
+  async updateDriverAvailability(
+    @Param('driverId') driverId: string,
+    @Body() dto: UpdateAvailabilityDto,
+  ): Promise<DriverStatusResponseDto> {
+    this.logger.log(`[Internal] Updating availability for driver ${driverId} to ${dto.isAvailable} (tripId: ${dto.tripId})`);
+    return this.driversService.updateAvailability(driverId, dto.isAvailable, dto.tripId);
   }
 }

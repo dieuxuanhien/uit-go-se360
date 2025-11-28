@@ -55,11 +55,26 @@ export class TripsRepository {
     }
   }
 
-  async findById(id: string): Promise<Trip | null> {
+  /**
+   * Find trip by ID - Uses PRIMARY database
+   * 
+   * Production Pattern: "Read-Your-Writes" consistency
+   * - Single trip lookups require real-time data (passenger polling for status)
+   * - Replicas can have 1-5s lag which causes 404 for recently created trips
+   * - Use replica only for historical/aggregate queries where staleness is OK
+   * 
+   * @param id - Trip UUID
+   * @param options.allowStale - If true, use replica (for non-critical lookups)
+   */
+  async findById(id: string, options?: { allowStale?: boolean }): Promise<Trip | null> {
     try {
-      // Story 2.2: Use read replica for SELECT queries
-      const readClient = this.replicaService.getReadClient();
-      return await readClient.trip.findUnique({
+      // Default: Use primary for individual trip lookup (real-time requirement)
+      // Optional: Allow stale reads for analytics/reports
+      const client = options?.allowStale 
+        ? this.replicaService.getReadClient()
+        : this.prisma;
+      
+      return await client.trip.findUnique({
         where: { id },
       });
     } catch (error) {
