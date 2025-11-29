@@ -15,9 +15,14 @@ An Architecture Decision Record (ADR) captures an important architectural decisi
 | [ADR-001](./ADR-001-event-driven-async-communication.md)     | Event-Driven Async Communication with SNS/SQS | ✅ Accepted | 2025-11-21 |
 | [ADR-002](./ADR-002-database-read-scaling-rds-replicas.md)   | Database Read Scaling with RDS Read Replicas  | ✅ Accepted | 2025-11-21 |
 | [ADR-003](./ADR-003-distributed-caching-elasticache.md)      | Distributed Caching with ElastiCache Redis    | ✅ Accepted | 2025-11-21 |
-| [ADR-004](./ADR-004-resilience-patterns-circuit-breakers.md) | Resilience Patterns with Circuit Breakers     | ✅ Accepted | 2025-11-21 |
-| [ADR-005](./ADR-005-api-gateway-rate-limiting.md)            | API Gateway with AWS API Gateway and WAF      | ✅ Accepted | 2025-11-21 |
-| [ADR-006](./ADR-006-auto-scaling-infrastructure.md)          | Auto-Scaling Infrastructure with ECS Fargate  | ✅ Accepted | 2025-11-21 |
+| [ADR-004](./ADR-004-auto-scaling-infrastructure.md)          | Auto-Scaling Infrastructure with ECS Fargate  | ✅ Accepted | 2025-11-21 |
+
+### Phase 2: Resilience & Security (Module B/C - Future)
+
+| ADR                                                          | Title                                         | Status      | Date       |
+| ------------------------------------------------------------ | --------------------------------------------- | ----------- | ---------- |
+| [ADR-005](./ADR-005-resilience-patterns-circuit-breakers.md) | Resilience Patterns with Circuit Breakers     | 📋 Planned  | -          |
+| [ADR-006](./ADR-006-api-gateway-rate-limiting.md)            | API Gateway with AWS API Gateway and WAF      | 📋 Planned  | -          |
 
 ## ADR Template
 

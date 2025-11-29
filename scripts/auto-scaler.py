@@ -4,9 +4,9 @@ Auto-Scaler for Docker Compose Services
 Story 2.6: Simulates ECS Fargate auto-scaling locally
 
 Infrastructure Context:
-- SNS/SQS: 3 SNS topics + 3 SQS queues (TripRequested, DriverMatched, TripEvents)
+- SNS/SQS: 1 SNS topic (trip-events) + 2 SQS queues (driver-match-queue, trip-update-queue) + 2 DLQs
 - Read Replicas: 2 replicas per database (user-service, trip-service)
-- Redis Cache: 6 nodes (3 primary + 3 replica) for driver-service caching
+- Redis Cache: 6 nodes (3 primary + 3 replica) for user-service caching
 
 Monitors Docker container metrics and scales services based on:
 - CPU utilization (target: 70%)
@@ -66,7 +66,7 @@ CONFIG = {
         "target_cpu": 55.0,  # Lowered from 70% for faster scaling response
         "target_memory": 65.0,
         "scale_out_cooldown": 20,  # Faster scale-out (was 30s)
-        "scale_in_cooldown": 180,  # Extended: prevent scale-in during load test (was 120s)
+        "scale_in_cooldown": 60,  # Reduced: grace period (180s) + stability count already protect warm-up
         "priority": 2,  # Medium priority (DB has read replicas)
         "description": "Auth + Profile (2 read replicas)",
     },
@@ -76,7 +76,7 @@ CONFIG = {
         "target_cpu": 50.0,  # Lowered from 60% - scale BEFORE saturation
         "target_memory": 60.0,
         "scale_out_cooldown": 15,  # Faster scale-out (was 20s)
-        "scale_in_cooldown": 300,  # Extended: 5 min (SQS queue backlog + test duration)
+        "scale_in_cooldown": 90,  # Reduced: grace period (180s) + stability count already protect warm-up
         "priority": 1,  # Highest priority - critical for trip flow
         "description": "Trip creation + SQS consumers (2 read replicas)",
     },
@@ -86,7 +86,7 @@ CONFIG = {
         "target_cpu": 40.0,  # Much lower - I/O bound (network/Redis), not CPU bound
         "target_memory": 70.0,
         "scale_out_cooldown": 15,  # Faster scale-out for I/O bound services
-        "scale_in_cooldown": 180,  # Extended: prevent scale-in during load test
+        "scale_in_cooldown": 60,  # Reduced: grace period (180s) + stability count already protect warm-up
         "priority": 1,  # ELEVATED: Critical bottleneck in 500 VU test
         "description": "Location + Search (6-node Redis cluster) - I/O BOUND",
     },

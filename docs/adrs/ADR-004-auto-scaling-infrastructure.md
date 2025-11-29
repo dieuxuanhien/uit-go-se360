@@ -1,4 +1,4 @@
-# ADR-006: Auto-Scaling Infrastructure with ECS Fargate
+# ADR-004: Auto-Scaling Infrastructure with ECS Fargate
 
 **Status:** ✅ Accepted  
 **Date:** 2025-11-21  
@@ -643,4 +643,4 @@ resource "aws_cloudwatch_metric_alarm" "ecs_max_capacity" {
 
 - [ADR-001: Async Communication](./ADR-001-event-driven-async-communication.md) - SQS queue depth triggers auto-scaling
 - [ADR-002: Database Scaling](./ADR-002-database-read-scaling-rds-replicas.md) - App tier scales independently from DB tier
-- [ADR-004: Resilience Patterns](./ADR-004-resilience-patterns-circuit-breakers.md) - Circuit breakers prevent cascade during scale-out
+- [ADR-005: Resilience Patterns](./ADR-005-resilience-patterns-circuit-breakers.md) - Circuit breakers prevent cascade during scale-out
