@@ -29,8 +29,10 @@ if [ ! -f "${PGDATA}/PG_VERSION" ]; then
     -R
   
   # Configure connection to primary
+  # CRITICAL: max_connections on replica must be >= primary (200)
   cat >> "${PGDATA}/postgresql.auto.conf" <<EOF
 primary_conninfo = 'host=${PRIMARY_HOST} port=5432 user=${PRIMARY_USER} password=${PRIMARY_PASSWORD}'
+max_connections = 200
 EOF
   
   echo "✓ Replica setup complete"

@@ -68,6 +68,4 @@ services:
       retries: 3
     restart: unless-stopped
 
-networks:
-  uitgo-network:
-    name: uitgo-network
+# Network defined in base docker-compose.yml

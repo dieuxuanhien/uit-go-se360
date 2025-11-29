@@ -296,7 +296,7 @@ function test_stage_4_current() {
   docker-compose -f docker-compose.yml \
     -f docker-compose.localstack.yml \
     -f docker-compose.replicas.yml \
-    -f docker-compose.redis-cluster.yml up -d
+    -f docker-compose.redis-cluster.yml -f docker-compose.loadbalancer.yml up -d
   
   if wait_for_services; then
     create_test_users

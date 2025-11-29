@@ -208,6 +208,4 @@ volumes:
   redis-node-6-data:
     driver: local
 
-networks:
-  uitgo-network:
-    external: true
+# Network defined in base docker-compose.yml
