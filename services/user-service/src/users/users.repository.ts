@@ -6,6 +6,15 @@ import { CacheService } from '../cache/cache.service';
 import { User, Prisma } from '@prisma/client';
 
 /**
+ * Result type for cache-aware queries
+ * Used to track cache hit/miss for observability
+ */
+export interface CacheAwareResult<T> {
+  data: T | null;
+  cacheHit: boolean;
+}
+
+/**
  * Users Repository
  * Handles all database operations for User entity
  * Story 2.3: Implements cache-aside pattern with Redis Cluster
@@ -24,20 +33,29 @@ export class UsersRepository {
   }
 
   /**
-   * Find user by ID
-   * Story 2.3: Cache-aside pattern
+   * Find user by ID (simple version for backward compatibility)
+   */
+  async findById(userId: string): Promise<User | null> {
+    const result = await this.findByIdWithCacheInfo(userId);
+    return result.data;
+  }
+
+  /**
+   * Find user by ID with cache hit information
+   * Story 2.3: Cache-aside pattern with observability
    * 1. Check cache first
    * 2. If miss, fetch from DB replica
    * 3. Store in cache for next request
+   * 4. Return cache hit status for metrics
    */
-  async findById(userId: string): Promise<User | null> {
+  async findByIdWithCacheInfo(userId: string): Promise<CacheAwareResult<User>> {
     const cacheKey = `user:${userId}`;
 
     // Step 1: Try cache first (if available)
     if (this.cacheService) {
       const cached = await this.cacheService.get<User>(cacheKey);
       if (cached) {
-        return cached;
+        return { data: cached, cacheHit: true };
       }
     }
 
@@ -52,7 +70,7 @@ export class UsersRepository {
       await this.cacheService.set(cacheKey, user, this.userTTL);
     }
 
-    return user;
+    return { data: user, cacheHit: false };
   }
 
   /**
