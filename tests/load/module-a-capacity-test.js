@@ -62,14 +62,15 @@ const driverRequests = new Counter('driver_requests');
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Configuration (adapts to architecture)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Use load balancer if USE_LB=true, otherwise direct service URLs
-// NOTE: LB only routes trip-service traffic; user/driver services stay direct
+// Use load balancer if USE_LB=true - routes ALL traffic through nginx
+// When USE_LB=true, ALL services go through the load balancer on port 8080
 const USE_LB = __ENV.USE_LB === 'true';
 const LB_URL = __ENV.LB_URL || 'http://localhost:8080';
 
-// User and Driver services always use direct URLs (no LB for these yet)
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:3001';
-const DRIVER_SERVICE_URL = __ENV.DRIVER_SERVICE_URL || 'http://localhost:3003';
+// When load balancer is enabled, ALL services use it
+// When disabled, use direct service URLs for development/debugging
+const BASE_URL = USE_LB ? LB_URL : (__ENV.BASE_URL || 'http://localhost:3001');
+const DRIVER_SERVICE_URL = USE_LB ? LB_URL : (__ENV.DRIVER_SERVICE_URL || 'http://localhost:3003');
 
 // Trip service uses LB when enabled (this is the bottleneck we're scaling)
 const TRIP_SERVICE_URL = USE_LB ? LB_URL : (__ENV.TRIP_SERVICE_URL || 'http://localhost:3002');

@@ -98,6 +98,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return this.client.sismember(key, member);
   }
 
+  async mget(...keys: string[]): Promise<(string | null)[]> {
+    return this.client.mget(...keys);
+  }
+
   async expire(key: string, seconds: number): Promise<number> {
     return this.client.expire(key, seconds);
   }
@@ -122,8 +126,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     radius: number,
     unit: 'km' | 'm' | 'mi' | 'ft',
     ...options: string[]
-  ): Promise<string[]> {
-    return this.client.georadius(key, longitude, latitude, radius, unit, ...options) as Promise<string[]>;
+  ): Promise<(string | [string, string])[]> {
+    // Return type depends on options:
+    // - Without WITHDIST: string[] (member IDs only)
+    // - With WITHDIST: [string, string][] (member ID, distance pairs)
+    return this.client.georadius(key, longitude, latitude, radius, unit, ...options) as Promise<(string | [string, string])[]>;
   }
 
   async zrem(key: string, ...members: string[]): Promise<number> {

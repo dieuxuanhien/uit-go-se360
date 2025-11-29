@@ -61,7 +61,7 @@ POLL_INTERVAL = 5  # Reduced from 10s for faster scaling response
 
 CONFIG = {
     "user-service": {
-        "min_replicas": 1,
+        "min_replicas": 2,  # FIXED: Keep at least 2 replicas (was 1, caused timeouts)
         "max_replicas": 4,
         "target_cpu": 55.0,  # Lowered from 70% for faster scaling response
         "target_memory": 65.0,
@@ -81,14 +81,14 @@ CONFIG = {
         "description": "Trip creation + SQS consumers (2 read replicas)",
     },
     "driver-service": {
-        "min_replicas": 1,
-        "max_replicas": 5,
-        "target_cpu": 60.0,  # Lowered from 75% for faster scaling
+        "min_replicas": 2,  # Pre-scale to 2 (I/O bound bottleneck)
+        "max_replicas": 6,  # Increased max for 500 VU load
+        "target_cpu": 40.0,  # Much lower - I/O bound (network/Redis), not CPU bound
         "target_memory": 70.0,
-        "scale_out_cooldown": 20,  # Faster (was 25s)
-        "scale_in_cooldown": 180,  # Extended: prevent scale-in during load test (was 90s)
-        "priority": 3,  # Lower priority (Redis cluster handles load)
-        "description": "Location + Search (6-node Redis cluster)",
+        "scale_out_cooldown": 15,  # Faster scale-out for I/O bound services
+        "scale_in_cooldown": 180,  # Extended: prevent scale-in during load test
+        "priority": 1,  # ELEVATED: Critical bottleneck in 500 VU test
+        "description": "Location + Search (6-node Redis cluster) - I/O BOUND",
     },
 }
 

@@ -295,7 +295,7 @@ export class DriversService {
         'WITHDIST',
         'ASC',
         'COUNT',
-        limit,
+        String(limit),
       );
 
       const executionTimeMs = Date.now() - start;

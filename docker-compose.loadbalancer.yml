@@ -46,9 +46,9 @@ services:
       DRIVER_SERVICE_PORT: 3003
       DRIVER_SERVICE_URL: http://driver-service:3003
       INTERNAL_API_KEY: uitgo-internal-secret-key-change-in-production
-      DATABASE_URL: postgresql://postgres:postgres@postgres-trip:5432/uitgo_trip?schema=public&connection_limit=20&pool_timeout=30
-      DATABASE_REPLICA1_URL: postgresql://postgres:postgres@postgres-trip-replica-1:5432/uitgo_trip?schema=public&connection_limit=10&pool_timeout=30
-      DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-trip-replica-2:5432/uitgo_trip?schema=public&connection_limit=10&pool_timeout=30
+      DATABASE_URL: postgresql://postgres:postgres@postgres-trip:5432/uitgo_trip?schema=public&connection_limit=50&pool_timeout=60
+      DATABASE_REPLICA1_URL: postgresql://postgres:postgres@postgres-trip-replica-1:5432/uitgo_trip?schema=public&connection_limit=25&pool_timeout=60
+      DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-trip-replica-2:5432/uitgo_trip?schema=public&connection_limit=25&pool_timeout=60
       AWS_REGION: us-east-1
       AWS_ENDPOINT_URL: http://localstack:4566
       AWS_ACCESS_KEY_ID: test
@@ -62,6 +62,77 @@ services:
         condition: service_healthy
     healthcheck:
       test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://127.0.0.1:3002/health']
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Pre-scaled driver-service replica (CRITICAL for 500 VU)
+  # driver-service was I/O bottleneck - needs 2 replicas minimum
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  driver-service-2:
+    image: uit-go-se360-driver-service
+    container_name: uitgo-driver-service-2
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      DRIVER_SERVICE_PORT: 3003
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+      INTERNAL_API_KEY: uitgo-internal-secret-key-change-in-production
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    networks:
+      uitgo-network:
+        aliases:
+          - driver-service  # DNS alias for load balancing
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://127.0.0.1:3003/health']
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Pre-scaled user-service replica for login/profile load
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  user-service-2:
+    image: uit-go-se360-user-service
+    container_name: uitgo-user-service-2
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres@postgres-user:5432/uitgo_user?schema=public&connection_limit=50&pool_timeout=60
+      DATABASE_REPLICA1_URL: postgresql://postgres:postgres@postgres-user-replica-1:5432/uitgo_user?schema=public&connection_limit=25&pool_timeout=60
+      DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-user-replica-2:5432/uitgo_user?schema=public&connection_limit=25&pool_timeout=60
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+      INTERNAL_API_KEY: uitgo-internal-secret-key-change-in-production
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    networks:
+      uitgo-network:
+        aliases:
+          - user-service  # DNS alias for load balancing
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://127.0.0.1:3001/health']
       interval: 30s
       timeout: 5s
       start_period: 10s

@@ -4,6 +4,7 @@ services:
   postgres-user:
     image: postgres:15-alpine
     container_name: uitgo-postgres-user
+    command: postgres -c max_connections=300 -c shared_buffers=256MB
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -23,6 +24,7 @@ services:
   postgres-trip:
     image: postgres:15-alpine
     container_name: uitgo-postgres-trip
+    command: postgres -c max_connections=300 -c shared_buffers=256MB
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -64,9 +66,9 @@ services:
       NODE_ENV: development
       LOG_LEVEL: debug
       USER_SERVICE_PORT: 3001
-      DATABASE_URL: postgresql://postgres:postgres@postgres-user:5432/uitgo_user?schema=public
-      DATABASE_REPLICA1_URL: postgresql://postgres:postgres@postgres-user-replica-1:5432/uitgo_user?schema=public
-      DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-user-replica-2:5432/uitgo_user?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@postgres-user:5432/uitgo_user?schema=public&connection_limit=50&pool_timeout=60
+      DATABASE_REPLICA1_URL: postgresql://postgres:postgres@postgres-user-replica-1:5432/uitgo_user?schema=public&connection_limit=25&pool_timeout=60
+      DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-user-replica-2:5432/uitgo_user?schema=public&connection_limit=25&pool_timeout=60
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
       JWT_EXPIRES_IN: 7d
       # Redis Cluster Configuration (Story 2.3)
@@ -142,7 +144,9 @@ services:
       start_period: 10s
       retries: 3
     networks:
-      - uitgo-network
+      uitgo-network:
+        aliases:
+          - driver-service  # DNS alias for load balancing
     volumes:
       - ./services/driver-service/src:/app/services/driver-service/src:ro
 
@@ -159,9 +163,9 @@ services:
       DRIVER_SERVICE_URL: http://driver-service:3003
       # Internal API key for calling driver-service
       INTERNAL_API_KEY: uitgo-internal-secret-key-change-in-production
-      DATABASE_URL: postgresql://postgres:postgres@postgres-trip:5432/uitgo_trip?schema=public&connection_limit=20&pool_timeout=30
-      DATABASE_REPLICA1_URL: postgresql://postgres:postgres@postgres-trip-replica-1:5432/uitgo_trip?schema=public&connection_limit=10&pool_timeout=30
-      DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-trip-replica-2:5432/uitgo_trip?schema=public&connection_limit=10&pool_timeout=30
+      DATABASE_URL: postgresql://postgres:postgres@postgres-trip:5432/uitgo_trip?schema=public&connection_limit=50&pool_timeout=60
+      DATABASE_REPLICA1_URL: postgresql://postgres:postgres@postgres-trip-replica-1:5432/uitgo_trip?schema=public&connection_limit=25&pool_timeout=60
+      DATABASE_REPLICA2_URL: postgresql://postgres:postgres@postgres-trip-replica-2:5432/uitgo_trip?schema=public&connection_limit=25&pool_timeout=60
       # AWS/LocalStack Configuration
       AWS_REGION: us-east-1
       AWS_ENDPOINT_URL: http://localstack:4566
