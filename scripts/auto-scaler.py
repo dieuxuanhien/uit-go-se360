@@ -62,7 +62,7 @@ POLL_INTERVAL = 5  # Reduced from 10s for faster scaling response
 CONFIG = {
     "user-service": {
         "min_replicas": 2,  # FIXED: Keep at least 2 replicas (was 1, caused timeouts)
-        "max_replicas": 4,
+        "max_replicas": 10,
         "target_cpu": 55.0,  # Lowered from 70% for faster scaling response
         "target_memory": 65.0,
         "scale_out_cooldown": 20,  # Faster scale-out (was 30s)
@@ -72,7 +72,7 @@ CONFIG = {
     },
     "trip-service": {
         "min_replicas": 2,  # CRITICAL: Keep at least 2 replicas for trip creation
-        "max_replicas": 6,  # Highest max - handles trip creation + SQS
+        "max_replicas": 15,  # Highest max - handles trip creation + SQS
         "target_cpu": 50.0,  # Lowered from 60% - scale BEFORE saturation
         "target_memory": 60.0,
         "scale_out_cooldown": 15,  # Faster scale-out (was 20s)
@@ -82,7 +82,7 @@ CONFIG = {
     },
     "driver-service": {
         "min_replicas": 2,  # Pre-scale to 2 (I/O bound bottleneck)
-        "max_replicas": 6,  # Increased max for 500 VU load
+        "max_replicas": 15,  # Increased max for 500 VU load
         "target_cpu": 40.0,  # Much lower - I/O bound (network/Redis), not CPU bound
         "target_memory": 70.0,
         "scale_out_cooldown": 15,  # Faster scale-out for I/O bound services
