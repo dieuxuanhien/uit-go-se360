@@ -1,0 +1,49 @@
+# Project Configuration
+project_name = "uit-go"
+environment  = "dev"
+aws_region   = "us-east-1"
+
+# Network Configuration
+availability_zones    = ["us-east-1a", "us-east-1b"]
+vpc_cidr             = "10.0.0.0/16"
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
+database_subnet_cidrs = ["10.0.21.0/24", "10.0.22.0/24"]
+
+# RDS Configuration
+db_instance_class         = "db.t3.micro"
+db_engine_version         = "15.4"
+db_allocated_storage      = 20
+db_max_allocated_storage  = 100
+db_multi_az              = false  # Set to true for production
+db_backup_retention_period = 7
+
+# ElastiCache Configuration
+redis_node_type       = "cache.t3.micro"
+redis_num_cache_nodes = 1  # Set to 2+ for production with replication
+redis_engine_version  = "7.0"
+
+# ECS Configuration
+ecs_cluster_name = "uit-go-cluster"
+services         = ["user-service", "trip-service", "driver-service"]
+
+# User Service Configuration
+user_service_desired_count = 2
+user_service_min_capacity  = 2
+user_service_max_capacity  = 4
+
+# Trip Service Configuration
+trip_service_desired_count = 2
+trip_service_min_capacity  = 2
+trip_service_max_capacity  = 4
+
+# Driver Service Configuration
+driver_service_desired_count = 2
+driver_service_min_capacity  = 2
+driver_service_max_capacity  = 4
+
+# CloudWatch Configuration
+log_retention_days = 7
+
+# ALB Configuration
+# certificate_arn = ""  # Add your ACM certificate ARN for HTTPS
