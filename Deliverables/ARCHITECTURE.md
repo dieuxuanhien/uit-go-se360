@@ -229,6 +229,7 @@ sequenceDiagram
     participant C as 📱 Client
     participant TS as 🚗 Trip Service
     participant DS as 📍 Driver Service
+    participant DB as 🗄️ Trip DB
     participant SNS as 📢 SNS Topic
     participant SQS as 📬 SQS Queue
 
@@ -236,10 +237,11 @@ sequenceDiagram
     
     rect rgba(255, 240, 220, 0.5)
         Note over TS,DS: Synchronous HTTP (real-time driver search)
-        TS->>DS: GET /drivers/search?lat=X&lng=Y
+        TS->>DS: GET /drivers/search?lat=X&lng=Y&radius=5000
         DS-->>TS: [driver1, driver2, ...] (8ms p50)
     end
     
+    TS->>DB: INSERT trip (PENDING)
     TS-->>C: 201 Created (109ms p50)
     
     rect rgba(220, 240, 255, 0.5)
@@ -247,9 +249,16 @@ sequenceDiagram
         TS->>SNS: Publish TripRequested event
         SNS->>SQS: Fan-out to driver-match-queue
         SQS->>DS: Poll & receive message
+        DS->>DS: Match driver to trip
         DS->>SNS: Publish TripMatched event
+        SNS->>SQS: Fan-out to trip-update-queue
+        SQS->>TS: Poll & update trip status
+        TS->>C: Notify user (driver assigned)
     end
+    
+    Note over C: User polls status → sees driver assigned
 ```
+
 
 **Hybrid Approach:**
 - **Synchronous HTTP:** Driver search (user cần kết quả ngay lập tức)
@@ -303,6 +312,7 @@ flowchart TD
     style Rep2 fill:#fff3e0,stroke:#f57c00
     style App fill:#e3f2fd,stroke:#1976d2
 ```
+
 
 ```typescript
 // Cache-Aside Pattern Implementation

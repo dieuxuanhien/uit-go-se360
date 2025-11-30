@@ -11,32 +11,120 @@
 Hệ thống UIT-Go ban đầu sử dụng **synchronous REST API calls** cho giao tiếp giữa TripService và DriverService:
 
 ```
-TripService --[HTTP SYNC]--> DriverService --[Query DB]--> Response --[2-5 seconds blocked]
+TripService --[HTTP SYNC]--> DriverService --[Query DB]--> Response --[several seconds blocked]
 ```
 
 **Symptoms:**
-- Response time: **2-5 seconds** cho trip creation (user phải chờ)
+- Response time: **vài giây** cho trip creation (user phải chờ lâu)
 - TripService bị **block** chờ DriverService response
 - **Cascading failures:** DriverService slow → TripService timeout → User error
-- Không handle được burst traffic (>100 concurrent requests → errors)
+- Không handle được burst traffic (concurrent requests cao → errors)
 
 **Scale Gap:**
-| Metric | Current | Target | Gap |
-|--------|---------|--------|-----|
-| Concurrent users | ~1,000 | 100,000 | **100x** |
-| Throughput | 500 trips/min | 50,000/min | **100x** |
+- **Concurrent users:** Cần hỗ trợ số lượng lớn hơn đáng kể so với hiện tại
+- **Throughput:** Cần tăng khả năng xử lý trips/phút lên nhiều lần
 
 ---
 
 ## Options Considered
 
-| Option | Pros | Cons | Why Not Chosen |
-|--------|------|------|----------------|
-| **1. Keep Sync + Circuit Breakers** | Simple, no new infra, team familiar | Still blocks threads (max 50 TPS), không giải quyết root cause | ❌ Circuit breaker chỉ fail-fast, không tăng throughput |
-| **2. Direct SQS (No SNS)** | Simpler architecture, $5/month cheaper | Không fan-out được, tight coupling (TripService phải hardcode queue name) | ❌ Không extensible - thêm Analytics service sẽ phải sửa code |
-| **3. Apache Kafka (MSK)** | 1M+ TPS, strong ordering, replay capability | $270/month (30x expensive), cần Kafka expertise, operational complexity | ❌ Over-engineering - 10K TPS đủ cho 100K users, team chưa có experience |
-| **4. RabbitMQ (Self-hosted)** | More control, rẻ hơn managed | Operational burden (patching, HA), team lacks expertise | ❌ Prefer managed service - focus business logic, không ops |
-| **5. SNS/SQS + LocalStack** | Fan-out pattern, managed (AWS), DLQ built-in, **$0 dev cost** | Eventual consistency, debugging harder | ✅ **CHOSEN** - Balance giữa features và simplicity |
+### Option 1: Keep Synchronous + Circuit Breakers
+
+**Mô tả:** Giữ nguyên HTTP sync calls, thêm Circuit Breaker pattern (Hystrix/Resilience4j) để fail-fast khi downstream service slow.
+
+| Pros | Cons |
+|------|------|
+| ✅ Simple - không cần học thêm | ❌ Vẫn block threads → throughput thấp |
+| ✅ Không cần infrastructure mới | ❌ Không giải quyết root cause (coupling) |
+| ✅ Team đã familiar với pattern | ❌ User vẫn phải chờ lâu |
+
+**Verdict:** ❌ Circuit breaker chỉ giúp fail-fast, không tăng throughput. Vấn đề cốt lõi là blocking I/O.
+
+---
+
+### Option 2: Direct SQS (Không có SNS)
+
+**Mô tả:** TripService push message trực tiếp vào SQS queue, DriverService poll từ queue.
+
+| Pros | Cons |
+|------|------|
+| ✅ Đơn giản hơn SNS+SQS | ❌ Không fan-out được (1 queue = 1 consumer type) |
+| ✅ Ít components hơn | ❌ Tight coupling - TripService phải biết queue names |
+| ✅ Latency thấp hơn một chút | ❌ Thêm Analytics/Notification service = sửa code |
+
+**Verdict:** ❌ Không extensible. Khi cần thêm consumers mới (Analytics, Push Notification), phải modify TripService code.
+
+---
+
+### Option 3: Apache Kafka (MSK) ⭐ Ideal nhưng không khả thi
+
+**Mô tả:** Sử dụng AWS Managed Streaming for Apache Kafka - industry standard cho event streaming.
+
+| Pros | Cons |
+|------|------|
+| ✅ **Throughput cực cao** - scale vô hạn | ❌ **Chi phí cao** (managed service đắt hơn nhiều) |
+| ✅ Strong ordering guarantees | ❌ Team **không có Kafka experience** |
+| ✅ Event replay (reprocess từ offset) | ❌ Operational complexity (partitions, consumer groups) |
+| ✅ Event sourcing ready | ❌ Overkill cho quy mô hiện tại |
+
+**Tại sao vẫn muốn Kafka?**
+- Event replay rất hữu ích cho debugging và analytics
+- Strong ordering tránh race conditions
+- Industry standard, dễ hire developers
+
+**Tại sao không chọn?**
+- **Budget constraint:** Chi phí vượt ngân sách cho course project
+- **Team skill gap:** Cần thời gian đáng kể học Kafka concepts
+- **Over-engineering:** Quy mô hiện tại không cần throughput cực cao của Kafka
+
+**Khi nào sẽ migrate sang Kafka?**
+- Khi throughput vượt xa capacity của SNS/SQS
+- Khi cần event replay/sourcing
+- Khi team có Kafka expertise
+
+---
+
+### Option 4: RabbitMQ (Self-hosted)
+
+**Mô tả:** Deploy RabbitMQ cluster trên EC2/ECS, tự quản lý.
+
+| Pros | Cons |
+|------|------|
+| ✅ Flexible routing (exchanges, bindings) | ❌ **Operational burden** (patching, monitoring, HA) |
+| ✅ Rẻ hơn managed services | ❌ Team không có RabbitMQ expertise |
+| ✅ Rich features (priority queues, TTL) | ❌ Single point of failure nếu setup sai |
+
+**Verdict:** ❌ Prefer managed service để focus vào business logic, không muốn maintain message broker infrastructure.
+
+---
+
+### Option 5: SNS/SQS + LocalStack ✅ CHOSEN
+
+**Mô tả:** AWS SNS (pub/sub) + SQS (queue) pattern, emulate bằng LocalStack cho development.
+
+| Pros | Cons |
+|------|------|
+| ✅ **Fan-out pattern** - SNS broadcast to multiple SQS | ❌ **Eventual consistency** - có delay nhỏ |
+| ✅ **Managed by AWS** - zero ops | ❌ Debugging khó hơn (async flow) |
+| ✅ **DLQ built-in** - no message loss | ❌ LocalStack ≠ AWS 100% (polling delay) |
+| ✅ **$0 development cost** (LocalStack) | ❌ Team cần học async patterns |
+| ✅ **Chi phí production thấp** | |
+| ✅ **High availability** từ AWS | |
+
+---
+
+## Why SNS/SQS? Decision Matrix
+
+| Criteria | Weight | Sync+CB | Direct SQS | Kafka | RabbitMQ | SNS/SQS |
+|----------|--------|---------|------------|-------|----------|---------|
+| **Throughput** | 30% | 1 | 3 | 5 | 4 | 4 |
+| **Cost (dev)** | 25% | 5 | 4 | 1 | 3 | 5 |
+| **Team expertise** | 20% | 5 | 4 | 1 | 2 | 3 |
+| **Extensibility** | 15% | 2 | 2 | 5 | 4 | 4 |
+| **Operational effort** | 10% | 5 | 4 | 2 | 1 | 5 |
+| **TOTAL** | 100% | **3.1** | **3.3** | **2.6** | **2.8** | **4.1** |
+
+**Kết luận:** SNS/SQS wins với score 4.1/5, cân bằng giữa features và constraints hiện tại.
 
 ---
 
@@ -48,7 +136,7 @@ TripService --[HTTP SYNC]--> DriverService --[Query DB]--> Response --[2-5 secon
 flowchart TB
     subgraph Publisher["📤 TRIP SERVICE (Publisher)"]
         TS["🚗 TripService<br/>(Port 3002)"]
-        HTTP["⚡ HTTP 201<br/>status: PENDING<br/>(50ms vs 2-5s)"]
+        HTTP["⚡ HTTP 201<br/>status: PENDING<br/>(instant response)"]
     end
 
     subgraph SNS["📢 SNS TOPIC"]
@@ -105,7 +193,7 @@ flowchart TB
 ```
 
 **Message Flow:**
-1. **TripService** nhận request tạo trip → trả về HTTP 201 ngay lập tức (50ms)
+1. **TripService** nhận request tạo trip → trả về HTTP 201 ngay lập tức
 2. **TripService** publish `TripRequested` event lên SNS
 3. **SNS** fan-out đến `driver-match-queue` (filter: TripRequested)
 4. **DriverService** poll queue, tìm driver phù hợp
@@ -117,77 +205,127 @@ flowchart TB
 | Component | Purpose | Config |
 |-----------|---------|--------|
 | SNS Topic `trip-events` | Publish events, enable fan-out | Standard topic |
-| SQS `driver-match-queue` | Driver matching consumer | Standard, 10K TPS |
+| SQS `driver-match-queue` | Driver matching consumer | Standard, high throughput |
 | SQS `trip-update-queue` | Trip status updates | Standard |
 | DLQ (Dead Letter Queue) | Failed messages after 3 retries | maxReceiveCount: 3 |
-| LocalStack | AWS emulation for local dev | Port 4566, **$0 cost** |
+| LocalStack | AWS emulation for local dev | Port 4566, **free** |
 
 ---
 
-## Trade-offs Accepted
+## Trade-offs của Solution Đã Chọn (SNS/SQS)
 
-### 1. ⚖️ Latency vs Throughput
+> **Nguyên tắc:** Mọi architectural decision đều có trade-offs. Section này phân tích những gì chúng ta **được** và **mất** khi chọn SNS/SQS.
 
-| Metric | Sync (Before) | Async (After) | Trade-off |
-|--------|---------------|---------------|-----------|
-| User-facing response | 2-5 seconds | **50-109ms** | ✅ 20-50x faster |
-| End-to-end completion | 2-5 seconds | 1-2 seconds | Slightly faster |
-| Throughput | 500 trips/min | **2,520/min** (42 RPS) | ✅ 5x more |
+### Trade-off 1: 🚀 Throughput vs 🎯 Latency
 
-**Decision:** User thấy "Finding driver..." ngay lập tức (50ms) thay vì spinner 5 giây. UX tốt hơn dù actual matching vẫn mất 1-2s.
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SYNC (Before)          │  ASYNC (After)                   │
+├─────────────────────────┼───────────────────────────────────┤
+│  User waits several     │  User sees "Finding..." instantly│
+│  seconds for result     │  But must poll for final status  │
+│  Throughput: thấp       │  Throughput: cao hơn nhiều       │
+└─────────────────────────┴───────────────────────────────────┘
+```
 
-### 2. ⚖️ Consistency vs Availability
+| Metric | Sync | Async | Verdict |
+|--------|------|-------|---------|
+| User-facing response | Vài giây (blocking) | Tức thì | ✅ Async wins |
+| End-to-end completion | Vài giây | Tương tự (background) | ≈ Similar |
+| Throughput | Thấp | Cao hơn nhiều | ✅ Async wins |
+| User experience | Spinner lâu | "Finding driver..." instant | ✅ Async wins |
+
+**What we gain:** Throughput cao hơn đáng kể, instant feedback cho user
+**What we lose:** User không có immediate final result (phải poll status)
+**Why acceptable:** Ride-hailing UX pattern đã chuẩn - user expect "Finding driver" animation
+
+---
+
+### Trade-off 2: 🔄 Consistency vs 💪 Availability
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SYNC: Strong Consistency    │  ASYNC: Eventual Consistency │
+├──────────────────────────────┼──────────────────────────────┤
+│  DriverService down?         │  DriverService down?         │
+│  → TripService also fails    │  → Messages queue up         │
+│  → User gets error           │  → User request succeeds     │
+│  → Cascading failure         │  → Process when back online  │
+└──────────────────────────────┴──────────────────────────────┘
+```
+
+| Aspect | Sync | Async | Verdict |
+|--------|------|-------|---------|
+| Data consistency | Strong (immediate) | Eventual (có delay nhỏ) | Sync better |
+| Service isolation | Cascading failures | Isolated failures | ✅ Async wins |
+| Failure handling | User sees error | Message queued, retry | ✅ Async wins |
+| Data integrity | All-or-nothing | Need idempotent handlers | Sync simpler |
+
+**What we gain:** Service isolation, no cascading failures, graceful degradation
+**What we lose:** Strong consistency - có thể có race conditions
+**Why acceptable:** 
+- Trip matching không cần microsecond precision
+- DLQ đảm bảo **no message loss** (retry 3 lần)
+- Idempotent handlers giải quyết duplicate messages
+
+---
+
+### Trade-off 3: 💰 Cost vs 🏢 Reliability
+
+| Environment | Cost | Reliability | Use Case |
+|-------------|------|-------------|----------|
+| **LocalStack (Dev)** | Free | Phụ thuộc Docker | Development, testing |
+| **AWS SNS/SQS (Prod)** | Thấp | Rất cao (AWS SLA) | Production |
+| **Kafka MSK** | Cao | Rất cao | Enterprise (overkill) |
+
+**What we gain:** Free development cost với LocalStack, dễ dàng migrate lên AWS
+**What we lose:** LocalStack không 100% giống AWS (polling delay cao hơn)
+**Why acceptable:** 
+- Development không cần production reliability
+- Patterns validated locally → minimal changes khi deploy AWS
+
+---
+
+### Trade-off 4: 📚 Simplicity vs 🔧 Debuggability
 
 | Aspect | Sync | Async |
 |--------|------|-------|
-| **Consistency** | Strong - immediate result | **Eventual** - ~200ms delay |
-| **Availability** | Cascading failures khi 1 service down | **Isolated** - queue buffers requests |
-| **Data integrity** | All-or-nothing | Need idempotent handlers |
+| Code complexity | 1 HTTP call | Pub/Sub + handlers + DLQ |
+| Debugging | Request → Response trace | Event correlation across services |
+| Testing | Unit tests đủ | Cần integration tests |
+| Onboarding | Immediate | Team cần học patterns |
 
-**Decision:** Chấp nhận eventual consistency vì:
-- Trip matching không cần microsecond precision
-- DLQ đảm bảo **no message loss** (retry 3 lần trước khi vào DLQ)
-- Availability > Consistency cho ride-hailing use case
-
-### 3. ⚖️ Cost vs Reliability
-
-| Environment | Monthly Cost | Reliability |
-|-------------|--------------|-------------|
-| Development (LocalStack) | **$0** | 99% (local Docker) |
-| Production (AWS SNS/SQS) | ~$9 | **99.99%** (AWS SLA) |
-
-**Decision:** 
-- Dev/Test: LocalStack ($0) - acceptable reliability for testing
-- Production: Real AWS (~$9/month for 10M messages) - enterprise reliability
-
-### 4. ⚖️ Complexity vs Simplicity
-
-| Aspect | Sync (Simple) | Async (Complex) |
-|--------|---------------|-----------------|
-| Code | 1 HTTP call | Pub/Sub + Message handlers |
-| Debugging | Request-response trace | Event tracing across services |
-| Testing | Unit tests sufficient | Need integration tests |
-| Learning curve | None | Team needs to learn patterns |
-
-**Decision:** Chấp nhận complexity vì **100x throughput improvement** justifies learning cost. Document patterns kỹ để onboard new members.
+**What we gain:** Decoupled architecture, independent scaling, extensibility
+**What we lose:** Simple request-response flow, easy debugging
+**Mitigation:**
+- Document patterns kỹ trong ADRs
+- Add correlation IDs cho event tracing
+- Integration tests cho happy path + failure scenarios
 
 ---
 
-## Measured Impact
+## Khi nào nên migrate sang solution khác?
 
-**Load Test Results (1000 VUs, 5 minutes):**
+| Trigger | Current (SNS/SQS) | Migrate To | Reason |
+|---------|-------------------|------------|--------|
+| Throughput vượt capacity | ✅ Đủ cho hiện tại | Kafka MSK | SNS/SQS có giới hạn |
+| Need event replay | ❌ No replay | Kafka MSK | Debug, analytics |
+| Strong ordering required | ❌ Standard queues | SQS FIFO | Exactly-once processing |
+| Multi-region | ✅ Works | Kafka MSK | Better replication |
 
-| Metric | Before (Sync) | After (Async) | Improvement |
-|--------|---------------|---------------|-------------|
-| Trip Creation p50 | 2-5 seconds | **109ms** | **20-50x faster** |
-| Trip Creation p95 | N/A | **720ms** | Within 1s target |
-| Error Rate | High (>100 VUs) | **0.67%** | Stable under load |
-| Throughput | ~8 RPS | **42 RPS** | **5x more** |
-| Max Concurrent | ~100 users | **1,000+ users** | **10x scale** |
+---
 
-**Auto-scaling triggered by queue depth:**
-- trip-service: 2 → 7 replicas
-- driver-service: 2 → 3 replicas
+## Expected Benefits
+
+**Performance Improvements:**
+- **Response time:** User nhận phản hồi ngay lập tức thay vì chờ full processing
+- **Throughput:** Hệ thống xử lý được nhiều requests đồng thời hơn nhờ non-blocking
+- **Error rate:** Giảm đáng kể nhờ decoupling và retry mechanism
+- **Scalability:** Hỗ trợ scale horizontally dễ dàng hơn
+
+**Operational Benefits:**
+- Auto-scaling có thể trigger dựa trên queue depth
+- Services scale independently theo workload
 
 ---
 
@@ -205,7 +343,7 @@ flowchart TB
 **Monitoring Alerts:**
 ```
 CloudWatch Alarm: DLQ messages > 0 → PagerDuty
-CloudWatch Alarm: Queue depth > 1000 → Trigger auto-scale
+CloudWatch Alarm: Queue depth cao → Trigger auto-scale
 ```
 
 ---
@@ -213,7 +351,7 @@ CloudWatch Alarm: Queue depth > 1000 → Trigger auto-scale
 ## Limitations & Future Work
 
 ### Current Limitations:
-1. **LocalStack ≠ AWS exactly** - Polling delay ~1-2s (AWS: <100ms)
+1. **LocalStack ≠ AWS exactly** - Polling delay cao hơn AWS production
 2. **No distributed tracing** - Hard to debug cross-service message flows
 3. **Manual DLQ processing** - No automated retry/dashboard yet
 4. **Standard queues** - At-least-once delivery, need idempotent handlers
@@ -221,15 +359,9 @@ CloudWatch Alarm: Queue depth > 1000 → Trigger auto-scale
 ### Future Improvements:
 | Priority | Task | Effort | Value |
 |----------|------|--------|-------|
-| 🔴 High | Migrate to real AWS SNS/SQS | 1 week | Production reliability |
-| 🟡 Medium | Add X-Ray/Jaeger tracing | 3 days | Debug visibility |
-| 🟡 Medium | DLQ processing dashboard | 2 days | Ops efficiency |
-| 🟢 Low | FIFO queues for strict ordering | 1 day | If needed later |
+| 🔴 High | Migrate to real AWS SNS/SQS | Medium | Production reliability |
+| 🟡 Medium | Add X-Ray/Jaeger tracing | Low | Debug visibility |
+| 🟡 Medium | DLQ processing dashboard | Low | Ops efficiency |
+| 🟢 Low | FIFO queues for strict ordering | Low | If needed later |
 
----
 
-## References
-
-- **Full ADR:** [../../docs/adrs/ADR-001-event-driven-async-communication.md](../../docs/adrs/ADR-001-event-driven-async-communication.md)
-- **LocalStack Setup:** [../../infrastructure/localstack/README.md](../../infrastructure/localstack/README.md)
-- **Load Test:** [../../tests/load/story-2.1-async-smoke-test.js](../../tests/load/story-2.1-async-smoke-test.js)

@@ -8,19 +8,30 @@
 
 ## The Problem
 
-Hệ thống sử dụng **single PostgreSQL instance** cho tất cả operations. Workload pattern: **80% reads, 20% writes**.
+Hệ thống sử dụng **single PostgreSQL instance** cho tất cả operations. Workload pattern: **đa số là reads, ít writes**.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Single PostgreSQL Instance                                 │
+├─────────────────────────────────────────────────────────────┤
+│  [READ]───┐                                                 │
+│  [READ]───┼──→ [DB] ←──[WRITE]                              │
+│  [READ]───┘      ↑                                          │
+│                  │                                          │
+│           CPU Contention                                    │
+│           All queries compete for same resources            │
+└─────────────────────────────────────────────────────────────┘
+```
 
 **Symptoms:**
-- **CPU:** 75% utilization during peak → approaching limit
-- **Query latency:** 200ms (normal) → **800ms** (under load) → degraded UX
-- Database là **single point of failure** (99.5% uptime = 3.6 hours downtime/month)
+- **CPU:** Utilization cao trong peak hours → gần giới hạn
+- **Query latency:** Tăng đáng kể khi có nhiều concurrent queries → degraded UX
+- Database là **single point of failure** → downtime ảnh hưởng toàn hệ thống
 
 **Scale Gap:**
-| Metric | Current | Target | Gap |
-|--------|---------|--------|-----|
-| Read TPS | 4,000 | 40,000 | **10x** |
-| Write TPS | 1,000 | 1,000 | Same |
-| Availability | 99.5% | 99.95% | **10x less downtime** |
+- **Read capacity:** Cần tăng khả năng xử lý read queries lên nhiều lần
+- **Write capacity:** Giữ nguyên (không phải bottleneck chính)
+- **Availability:** Cần giảm downtime đáng kể để đạt high availability
 
 **Root Cause:** Single instance handles cả reads và writes → CPU contention.
 
@@ -28,13 +39,114 @@ Hệ thống sử dụng **single PostgreSQL instance** cho tất cả operation
 
 ## Options Considered
 
-| Option | Pros | Cons | Why Not Chosen |
-|--------|------|------|----------------|
-| **1. Vertical Scaling** (db.r5.4xlarge) | Simple, no replication lag, immediate | $1,401/month (68% more), still SPOF, max 4x capacity | ❌ More expensive AND still single point of failure |
-| **2. Horizontal Sharding** | 200k+ TPS, linear scaling | Extreme complexity, cross-shard JOINs impossible, rebalancing pain | ❌ Over-engineering - team chưa cần 200k TPS |
-| **3. NoSQL (DynamoDB)** | Unlimited scale, managed | Complete rewrite, loss of ACID, 6-month migration | ❌ Too risky - team expertise là PostgreSQL |
-| **4. Aurora PostgreSQL** | 15 replicas, faster failover | Vendor lock-in, unpredictable costs | 🤔 Consider for production later |
-| **5. PostgreSQL Streaming Replication** | 3x read capacity, HA, team knows PostgreSQL | Replication lag, routing complexity | ✅ **CHOSEN** - balance capacity vs complexity |
+### Option 1: Vertical Scaling (Upgrade Instance)
+
+**Mô tả:** Nâng cấp instance lên size lớn hơn (vd: db.r5.4xlarge).
+
+| Pros | Cons |
+|------|------|
+| ✅ Simple - không thay đổi architecture | ❌ **Chi phí tăng đáng kể** |
+| ✅ No replication lag | ❌ Vẫn là **Single Point of Failure** |
+| ✅ Immediate improvement | ❌ Capacity có giới hạn (không scale vô hạn) |
+
+**Verdict:** ❌ Đắt hơn mà vẫn SPOF. Không giải quyết được availability issue.
+
+---
+
+### Option 2: Horizontal Sharding
+
+**Mô tả:** Phân chia data theo key (user_id, region) ra nhiều database instances.
+
+| Pros | Cons |
+|------|------|
+| ✅ Throughput cực cao, scale gần như vô hạn | ❌ **Complexity cực kỳ cao** |
+| ✅ Linear scaling với số shards | ❌ Cross-shard JOINs impossible |
+| | ❌ Rebalancing data rất phức tạp |
+| | ❌ Team chưa có expertise |
+
+**Tại sao vẫn muốn Sharding?**
+- Scaling potential gần như không giới hạn
+- Phù hợp với data có natural partition key
+
+**Tại sao không chọn?**
+- **Over-engineering** cho quy mô hiện tại
+- Team cần học thêm rất nhiều
+- Application code phải rewrite extensively
+
+**Khi nào sẽ migrate sang Sharding?**
+- Khi throughput vượt xa capacity của read replicas
+- Khi có clear partition key (vd: by region)
+
+---
+
+### Option 3: NoSQL (DynamoDB)
+
+**Mô tả:** Chuyển sang DynamoDB - fully managed NoSQL với unlimited scale.
+
+| Pros | Cons |
+|------|------|
+| ✅ Unlimited scale | ❌ **Complete application rewrite** |
+| ✅ Fully managed by AWS | ❌ **Loss of ACID transactions** |
+| ✅ Single-digit millisecond latency | ❌ Team expertise là PostgreSQL |
+| | ❌ Migration effort rất lớn |
+
+**Verdict:** ❌ Quá risky. Đánh đổi ACID và SQL capabilities không xứng đáng với benefits.
+
+---
+
+### Option 4: Aurora PostgreSQL ⭐ Ideal nhưng chưa phù hợp
+
+**Mô tả:** AWS Aurora PostgreSQL - managed với up to 15 read replicas, faster failover.
+
+| Pros | Cons |
+|------|------|
+| ✅ Up to 15 read replicas | ❌ **Vendor lock-in** (AWS only) |
+| ✅ Faster failover | ❌ **Chi phí không dự đoán được** |
+| ✅ Storage auto-scaling | ❌ Không chạy được local (khó dev/test) |
+| ✅ Better HA than standard RDS | |
+
+**Tại sao vẫn muốn Aurora?**
+- Managed service, ít ops burden
+- Better performance than standard PostgreSQL
+
+**Tại sao không chọn?**
+- **Budget concern:** Pricing model phức tạp
+- **Không thể test locally:** Cần Aurora-compatible LocalStack (trả phí)
+- **Course project constraint:** Standard PostgreSQL đủ để demo concepts
+
+**Khi nào sẽ migrate sang Aurora?**
+- Production deployment với budget đủ
+- Cần hơn 2 replicas
+- Cần sub-minute failover
+
+---
+
+### Option 5: PostgreSQL Streaming Replication ✅ CHOSEN
+
+**Mô tả:** Setup 1 Primary + 2 Read Replicas với PostgreSQL native streaming replication.
+
+| Pros | Cons |
+|------|------|
+| ✅ **Tăng read capacity nhiều lần** | ❌ **Replication lag** (eventual consistency) |
+| ✅ **High Availability** - replicas làm backup | ❌ **Routing complexity** trong application |
+| ✅ **Team familiar** với PostgreSQL | ❌ Cần manage nhiều DB instances |
+| ✅ **Chạy được local** (Docker Compose) | |
+| ✅ **Chi phí hợp lý** | |
+
+---
+
+## Why PostgreSQL Streaming Replication? Decision Matrix
+
+| Criteria | Weight | Vertical | Sharding | DynamoDB | Aurora | Streaming |
+|----------|--------|----------|----------|----------|--------|-----------|
+| **Read Capacity** | 25% | 2 | 5 | 5 | 5 | 4 |
+| **Cost** | 25% | 2 | 3 | 3 | 2 | 4 |
+| **Team expertise** | 20% | 5 | 1 | 2 | 4 | 5 |
+| **Local dev support** | 15% | 5 | 2 | 1 | 1 | 5 |
+| **Complexity** | 15% | 5 | 1 | 2 | 4 | 3 |
+| **TOTAL** | 100% | **3.3** | **2.4** | **2.7** | **3.1** | **4.2** |
+
+**Kết luận:** PostgreSQL Streaming Replication wins với score 4.2/5, cân bằng giữa capacity increase và constraints hiện tại.
 
 ---
 
@@ -44,68 +156,120 @@ Hệ thống sử dụng **single PostgreSQL instance** cho tất cả operation
 
 ```mermaid
 flowchart TD
-    App[NestJS Application]
+    subgraph App["🖥️ APPLICATION LAYER"]
+        NestJS["NestJS Services"]
+        Router["Read/Write Router"]
+    end
     
-    App -->|WRITE 20%| Primary
-    App -->|READ 40%| Rep1
-    App -->|READ 40%| Rep2
+    subgraph Primary["📝 PRIMARY (Read/Write)"]
+        PDB[(Primary DB<br>Port 5432)]
+    end
     
-    Primary[(Primary DB<br>Port 5432<br>R/W)]
-    Rep1[(Replica 1<br>Port 5433<br>Read-Only)]
-    Rep2[(Replica 2<br>Port 5434<br>Read-Only)]
+    subgraph Replicas["📖 REPLICAS (Read-Only)"]
+        Rep1[(Replica 1<br>Port 5433)]
+        Rep2[(Replica 2<br>Port 5434)]
+    end
     
-    Primary -.->|WAL Streaming<br>Async| Rep1
-    Primary -.->|WAL Streaming<br>Async| Rep2
+    NestJS --> Router
+    Router -->|"WRITE queries"| PDB
+    Router -->|"READ queries<br>(round-robin)"| Rep1
+    Router -->|"READ queries<br>(round-robin)"| Rep2
     
-    Note[Less than 100ms lag typical]
+    PDB -.->|"WAL Streaming<br>(Async)"| Rep1
+    PDB -.->|"WAL Streaming<br>(Async)"| Rep2
     
-    style Primary fill:#c8e6c9,stroke:#388e3c
-    style Rep1 fill:#fff3e0,stroke:#f57c00
-    style Rep2 fill:#fff3e0,stroke:#f57c00
-    style App fill:#e3f2fd,stroke:#1976d2
+    classDef appBox fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef primaryBox fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    classDef replicaBox fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    
+    class NestJS,Router appBox
+    class PDB primaryBox
+    class Rep1,Rep2 replicaBox
 ```
 
 **Routing Logic:**
 | Operation | Route To | Reason |
 |-----------|----------|--------|
 | All WRITEs | Primary | Only primary accepts writes |
-| Read-after-write (< 2s) | Primary | Avoid stale data |
+| Read-after-write (recent) | Primary | Avoid stale data from lag |
 | Historical reads | Replicas (round-robin) | Load distribution |
 | Trip status check (new trip) | Primary | Avoid 404 from lag |
 
+**Key Components:**
+| Component | Purpose | Config |
+|-----------|---------|--------|
+| Primary DB | Handle all writes + critical reads | Port 5432, Read/Write |
+| Replica 1 | Handle read queries | Port 5433, Read-Only |
+| Replica 2 | Handle read queries + failover candidate | Port 5434, Read-Only |
+| WAL Streaming | Async replication | Continuous archiving |
+
 ---
 
-## Trade-offs Accepted
+## Trade-offs của Solution Đã Chọn
 
-### 1. ⚖️ Consistency vs Read Capacity
+> **Nguyên tắc:** Mọi architectural decision đều có trade-offs. Section này phân tích những gì chúng ta **được** và **mất** khi chọn Read Replicas.
 
-| Aspect | Single DB | With Replicas |
-|--------|-----------|---------------|
-| **Read consistency** | Always latest | **Eventual** (~100ms lag) |
-| **Read capacity** | 4,000 TPS | **12,000 TPS** (3x) |
-| **Failure impact** | Total outage | Replicas still serve reads |
+### Trade-off 1: 🔄 Consistency vs 📈 Read Capacity
 
-**Decision:** Accept eventual consistency for **non-critical reads** (trip history, driver profiles). Route **critical reads** (read-after-write) to Primary.
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SINGLE DB (Before)       │  WITH REPLICAS (After)         │
+├───────────────────────────┼─────────────────────────────────┤
+│  Every read = latest data │  Read có thể slightly stale    │
+│  But limited throughput   │  But throughput cao hơn nhiều  │
+│  All queries → 1 instance │  Queries distributed → 3 nodes │
+└───────────────────────────┴─────────────────────────────────┘
+```
+
+| Aspect | Single DB | With Replicas | Verdict |
+|--------|-----------|---------------|---------|
+| **Read consistency** | Always latest | **Eventual** (có lag nhỏ) | Single better |
+| **Read capacity** | Giới hạn | **Cao hơn nhiều lần** | ✅ Replicas wins |
+| **Failure impact** | Total outage | Replicas vẫn serve reads | ✅ Replicas wins |
+
+**What we gain:** Read capacity tăng đáng kể, fault tolerance
+**What we lose:** Strong consistency - có thể đọc data cũ
+**Why acceptable:** 
+- Đa số reads không cần microsecond freshness (trip history, driver profiles)
+- Critical reads (read-after-write) vẫn route đến Primary
 
 **Real Issue Encountered:**
 ```
-❌ Problem: User creates trip → immediately check status → 404 (replica hasn't replicated yet)
-✅ Solution: Route trip status checks to Primary for 2 seconds after creation
+❌ Problem: User creates trip → immediately check status → 404 (replica chưa replicate)
+✅ Solution: Route recent trip status checks to Primary
 ```
 
-### 2. ⚖️ Cost vs Availability
+---
 
-| Config | Monthly Cost | Availability | Recovery Time |
-|--------|--------------|--------------|---------------|
-| Single instance | $72 | 99.5% (43h/year) | Manual (30min) |
-| 1 Primary + 2 Replicas | **$250** | **99.95%** (4h/year) | Auto (<2min) |
+### Trade-off 2: 💰 Cost vs 🛡️ Availability
 
-**Decision:** 3.5x cost increase justified by:
-- 10x less downtime
-- Auto-failover (Primary dies → promote Replica)
-- Read capacity scales with business
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SINGLE INSTANCE          │  1 PRIMARY + 2 REPLICAS        │
+├───────────────────────────┼─────────────────────────────────┤
+│  Chi phí thấp             │  Chi phí cao hơn               │
+│  Single point of failure  │  High availability             │
+│  Downtime = total outage  │  Partial service during fail   │
+│  Manual recovery          │  Auto-failover possible        │
+└───────────────────────────┴─────────────────────────────────┘
+```
 
-### 3. ⚖️ Complexity vs Simplicity
+| Aspect | Single Instance | With Replicas | Verdict |
+|--------|-----------------|---------------|---------|
+| **Cost** | Thấp | Cao hơn đáng kể | Single cheaper |
+| **Availability** | Thấp (SPOF) | **Cao hơn nhiều** | ✅ Replicas wins |
+| **Recovery time** | Chậm (manual) | Nhanh (auto-failover) | ✅ Replicas wins |
+
+**What we gain:** High availability, giảm downtime đáng kể, auto-failover capability
+**What we lose:** Chi phí tăng
+**Why acceptable:** 
+- Downtime ảnh hưởng user experience và business
+- Course project cũng cần demonstrate HA concepts
+- Chi phí Docker Compose = $0 cho local development
+
+---
+
+### Trade-off 3: 🎯 Simplicity vs 🔧 Scalability
 
 | Aspect | Single DB | With Replicas |
 |--------|-----------|---------------|
@@ -113,29 +277,54 @@ flowchart TD
 | Config | 1 connection string | 3 connection strings |
 | Debugging | Straightforward | "Which DB did this query go to?" |
 | Deployment | 1 container | 3 containers + replication setup |
+| Mental model | Easy | Need understanding of replication |
 
-**Decision:** Accept complexity. Mitigation:
+**What we gain:** Horizontal scalability, thêm replicas khi cần
+**What we lose:** Simple mental model, debugging complexity
+**Mitigation:**
 - Centralized routing function (không scatter logic)
 - Logging which DB handled each query
 - Docker Compose abstracts replication setup
 
 ---
 
-## Measured Impact
+### Trade-off 4: 🏠 Local Dev vs ☁️ Production Parity
 
-**Load Test Results (1000 VUs):**
+| Aspect | Local (Docker) | Production (RDS) |
+|--------|----------------|------------------|
+| Failover | Manual replica promotion | Auto-failover |
+| Monitoring | Basic Docker logs | CloudWatch full metrics |
+| Replication | Same PostgreSQL streaming | Same concept, managed |
 
-| Metric | Single DB | With Replicas | Improvement |
-|--------|-----------|---------------|-------------|
-| Profile Lookup p50 | 150ms | **7ms** | **21x faster** |
-| Profile Lookup p95 | 500ms | **25ms** | **20x faster** |
-| Driver Search p50 | 200ms | **8ms** | **25x faster** |
-| Driver Search p95 | 800ms | **36ms** | **22x faster** |
-| Error Rate | >5% at 500 VUs | **0.67%** at 1000 VUs | Stable |
+**What we gain:** Có thể test replication concepts locally
+**What we lose:** 100% production parity (auto-failover behavior khác)
+**Why acceptable:**
+- Core concept (read/write routing) identical
+- Production differences là managed features, không ảnh hưởng logic
 
-**Database CPU:**
-- Before: 75% (single instance under load)
-- After: ~40% Primary, ~50% each Replica (load distributed)
+---
+
+## Khi nào nên migrate sang solution khác?
+
+| Trigger | Current (Streaming) | Migrate To | Reason |
+|---------|---------------------|------------|--------|
+| Cần hơn 2 replicas | ✅ 2 replicas | Aurora PostgreSQL | Up to 15 replicas |
+| Cần sub-minute failover | Manual promotion | RDS Multi-AZ | Auto-failover nhanh |
+| Throughput vượt capacity | ✅ Đủ hiện tại | Sharding | Linear scaling |
+| Cần global distribution | Single region | Aurora Global | Multi-region replicas |
+
+---
+
+## Expected Benefits
+
+**Performance Improvements:**
+- **Read latency:** Giảm đáng kể nhờ phân tải queries sang replicas
+- **Throughput:** Tăng gấp nhiều lần nhờ parallel read processing
+- **Error rate:** Ổn định hơn dưới high load nhờ distributed queries
+
+**Resource Utilization:**
+- Database CPU được phân bổ đều giữa Primary và Replicas
+- Primary có headroom để xử lý writes mà không bị contention từ reads
 
 ---
 
@@ -143,16 +332,16 @@ flowchart TD
 
 | Failure | Impact | Mitigation | Recovery |
 |---------|--------|------------|----------|
-| **Primary down** | No writes, stale reads | Promote replica to primary | Auto-failover <2min (RDS Multi-AZ) |
-| **One replica down** | 50% read capacity | Other replica + Primary handle reads | Auto-restart container |
-| **Replication lag >5s** | Stale data visible | CloudWatch alarm → investigate | Usually network/load issue |
-| **Read-after-write stale** | User sees old data | Route to Primary for 2s after write | Code pattern |
+| **Primary down** | No writes, stale reads | Promote replica to primary | Auto-failover (RDS Multi-AZ) |
+| **One replica down** | Reduced read capacity | Other replica + Primary handle reads | Auto-restart container |
+| **Replication lag spike** | Stale data visible longer | CloudWatch alarm → investigate | Usually network/load issue |
+| **Read-after-write stale** | User sees old data | Route to Primary for recent writes | Code pattern |
 | **Connection exhaustion** | New requests fail | Connection pooling (PgBouncer) | Pool size tuning |
 
-**Monitoring:**
+**Monitoring Alerts:**
 ```
-CloudWatch: ReplicaLag > 1000ms → Alert
-CloudWatch: DatabaseConnections > 80% → Alert
+CloudWatch: ReplicaLag quá cao → Alert
+CloudWatch: DatabaseConnections > threshold → Alert
 ```
 
 ---
@@ -168,15 +357,9 @@ CloudWatch: DatabaseConnections > 80% → Alert
 ### Future Improvements:
 | Priority | Task | Effort | Value |
 |----------|------|--------|-------|
-| 🔴 High | Add PgBouncer connection pool | 2 days | Handle 10x more connections |
-| 🔴 High | Migrate to RDS Multi-AZ | 1 week | Auto-failover, managed |
-| 🟡 Medium | Add ProxySQL for transparent routing | 3 days | Simplify app code |
-| 🟢 Low | Add 3rd replica | 1 day | More read capacity |
+| 🔴 High | Add PgBouncer connection pool | Low | Handle nhiều connections hơn |
+| 🔴 High | Migrate to RDS Multi-AZ | Medium | Auto-failover, managed |
+| 🟡 Medium | Add ProxySQL for transparent routing | Low | Simplify app code |
+| 🟢 Low | Add 3rd replica | Low | More read capacity |
 
----
 
-## References
-
-- **Full ADR:** [../../docs/adrs/ADR-002-database-read-scaling-rds-replicas.md](../../docs/adrs/ADR-002-database-read-scaling-rds-replicas.md)
-- **Load Test:** [../../tests/load/story-2.2-read-scaling-test.js](../../tests/load/story-2.2-read-scaling-test.js)
-- **Docker Config:** [../../docker-compose.replicas.yml](../../docker-compose.replicas.yml)

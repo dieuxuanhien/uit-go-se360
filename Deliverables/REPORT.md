@@ -155,17 +155,17 @@ Chúng tôi đã implement **4 scalability patterns** để giải quyết các 
 
 #### The Problem
 Synchronous HTTP calls giữa TripService và DriverService gây:
-- Response time 2-5 giây cho trip creation (user phải chờ)
+- Response time: vài giây cho trip creation (user phải chờ lâu)
 - Cascading failures: DriverService slow → TripService timeout → User error
-- Không handle được burst traffic (>100 concurrent requests)
+- Không handle được burst traffic (concurrent requests cao → errors)
 
 #### Options Considered
 
 | Option | Pros | Cons | Decision |
 |--------|------|------|----------|
-| Keep Sync + Circuit Breakers | Simple, no new infra | Still blocks threads (max 50 TPS) | ❌ Rejected |
+| Keep Sync + Circuit Breakers | Simple, no new infra | Vẫn block threads → throughput thấp | ❌ Rejected |
 | Direct SQS (No SNS) | Simpler | Không fan-out, tight coupling | ❌ Rejected |
-| Apache Kafka (MSK) | 1M+ TPS, replay | $270/month, cần expertise | ❌ Over-engineering |
+| Apache Kafka (MSK) | Throughput cực cao, replay | Chi phí cao, cần expertise | ❌ Over-engineering |
 | RabbitMQ (Self-hosted) | More control | Operational burden | ❌ Rejected |
 | **SNS/SQS + LocalStack** | Fan-out, DLQ, **$0** | Eventual consistency | ✅ **CHOSEN** |
 
@@ -173,11 +173,11 @@ Synchronous HTTP calls giữa TripService và DriverService gây:
 
 | Trade-off | What We Give Up | What We Gain |
 |-----------|-----------------|--------------|
-| **Latency vs Throughput** | +200ms async delay | 5x throughput (42 RPS vs 8 RPS) |
-| **Consistency vs Availability** | Eventual consistency | Decoupled services, no cascading failures |
-| **Simplicity vs Reliability** | More moving parts | DLQ đảm bảo no message loss |
+| **Throughput vs Latency** | User không có immediate final result | Throughput cao hơn đáng kể, instant feedback |
+| **Consistency vs Availability** | Eventual consistency (có delay nhỏ) | Service isolation, no cascading failures |
+| **Simplicity vs Debuggability** | Async flow khó debug hơn | DLQ đảm bảo no message loss, extensibility |
 
-**Measured Impact:** Trip Creation p50 từ 2-5s giảm xuống **109ms** (20-50x faster)
+**Expected Impact:** Response time giảm đáng kể nhờ user nhận phản hồi ngay lập tức thay vì chờ full processing
 
 
 > 📄 **Chi tiết đầy đủ:** [ADR-001-async-communication.md](./ADR/ADR-001-async-communication.md)
@@ -187,28 +187,29 @@ Synchronous HTTP calls giữa TripService và DriverService gây:
 
 #### The Problem
 Single database instance không thể handle high read traffic:
-- Profile lookups: 200ms mỗi query
-- Trip history queries: 300ms
-- Database CPU: 75% utilization
+- CPU utilization cao trong peak hours → gần giới hạn
+- Query latency tăng đáng kể khi có nhiều concurrent queries
+- Database là single point of failure → downtime ảnh hưởng toàn hệ thống
 
 #### Options Considered
 
 | Option | Pros | Cons | Decision |
 |--------|------|------|----------|
-| Vertical Scaling | Simple | Limited ceiling, expensive | ❌ Rejected |
-| Application Caching Only | Lower latency | Cache invalidation hell | ❌ Not enough |
-| PostgreSQL Logical Replication | Flexible | Complex setup | ❌ Over-engineering |
-| **PostgreSQL Streaming Replication** | Simple, fast | Read-only replicas | ✅ **CHOSEN** |
+| Vertical Scaling | Simple | Chi phí cao, vẫn là SPOF | ❌ Rejected |
+| Horizontal Sharding | Scale gần như vô hạn | Complexity cực kỳ cao | ❌ Over-engineering |
+| NoSQL (DynamoDB) | Unlimited scale | Complete rewrite, loss of ACID | ❌ Rejected |
+| Aurora PostgreSQL | Up to 15 replicas | Vendor lock-in, không chạy local | ⏳ For production |
+| **PostgreSQL Streaming Replication** | Team familiar, chạy local | Replication lag | ✅ **CHOSEN** |
 
 #### Trade-offs Accepted
 
 | Trade-off | What We Give Up | What We Gain |
-|-----------|-----------------|--------------|
-| **Consistency vs Performance** | ~100ms replication lag | 3x read capacity |
-| **Cost vs Capacity** | +60% infrastructure cost | Horizontal scaling capability |
-| **Simplicity vs Availability** | Routing complexity | HA với automatic failover |
+|-----------|-----------------|--------------||
+| **Consistency vs Read Capacity** | Eventual consistency (có lag nhỏ) | Read capacity tăng nhiều lần, fault tolerance |
+| **Cost vs Availability** | Chi phí tăng | High availability, giảm downtime đáng kể |
+| **Simplicity vs Scalability** | Routing complexity, debugging khó hơn | Horizontal scalability, thêm replicas khi cần |
 
-**Measured Impact:** Trip Creation p95 đạt **720ms** (dưới target 1000ms)
+**Expected Impact:** Read latency giảm đáng kể nhờ phân tải queries sang replicas
 
 
 > 📄 **Chi tiết đầy đủ:** [ADR-002-read-replicas.md](./ADR/ADR-002-read-replicas.md)
@@ -219,27 +220,30 @@ Single database instance không thể handle high read traffic:
 
 #### The Problem
 Repeated database queries cho frequently accessed data:
-- Driver Profile Query: 200ms (50 queries/sec peak)
-- Database Load: 10,000 queries/sec (80% are cacheable)
+- Profile queries có latency cao do hit database
+- Database load cao với phần lớn là cacheable reads
+- PostgreSQL CPU utilization cao, gần giới hạn
 
 #### Options Considered
 
 | Option | Pros | Cons | Decision |
 |--------|------|------|----------|
-| In-Memory Cache (Node.js LRU) | Zero cost, <1ms | No shared state | ❌ Not for distributed |
-| Redis Standalone | Simple | Single point of failure | ❌ No HA |
-| Memcached | Cheaper | No persistence, no pub/sub | ❌ Redis features worth it |
-| **Redis Cluster (6 nodes)** | HA, shared cache | Memory overhead | ✅ **CHOSEN** |
+| In-Memory Cache (Node.js LRU) | Zero cost, fastest | No shared state giữa instances | ❌ Not for distributed |
+| Redis Self-Hosted (EC2) | Rẽ hơn managed | Operational burden | ❌ Rejected |
+| Memcached | Rẻ hơn Redis | No persistence, no pub/sub | ❌ Redis features worth it |
+| DynamoDB DAX | Microsecond latency | Only works with DynamoDB | ❌ Incompatible |
+| **Redis Cluster (6 nodes)** | HA, shared cache, geo | Memory overhead | ✅ **CHOSEN** |
 
 #### Trade-offs Accepted
 
 | Trade-off | What We Give Up | What We Gain |
-|-----------|-----------------|--------------|
-| **Memory vs CPU** | $266/month memory cost | 10x database CPU reduction |
-| **Consistency vs Performance** | Eventual consistency (TTL) | 10x faster (180ms → 18ms) |
-| **Cold Start vs Hot Path** | First request hits DB | 90%+ cache hit sau warm |
+|-----------|-----------------|--------------||
+| **Memory Cost vs Database Load** | Thêm memory cost | Database load giảm đáng kể, response nhanh hơn |
+| **Consistency vs Performance** | Eventual consistency (TTL-based) | Response time cải thiện rõ rệt, throughput cao hơn |
+| **Simplicity vs Scalability** | Thêm infrastructure components | Capacity tăng đáng kể, auto-failover |
+| **Cold Start vs Hot Path** | First request hits DB | Phần lớn requests served from memory |
 
-**Measured Impact:** Driver Search p95 từ 468ms giảm xuống **36ms** (**13x faster**)
+**Expected Impact:** Driver Search trở thành endpoint nhanh nhất nhờ Redis geospatial caching
 
 
 > 📄 **Chi tiết đầy đủ:** [ADR-003-distributed-caching.md](./ADR/ADR-003-distributed-caching.md)
@@ -250,29 +254,30 @@ Repeated database queries cho frequently accessed data:
 
 #### The Problem
 Fixed containers không thể handle varying traffic:
-- Over-provisioning (night): 80% CPU waste
-- Under-provisioning (peak): 50% requests fail
-- Manual scaling: 10-15 phút (rush hour over by then)
+- Over-provisioning (night): Lãng phí resources
+- Under-provisioning (peak): Requests fail
+- Manual scaling: Mất thời gian, không react kịp
 
 #### Options Considered
 
 | Option | Pros | Cons | Decision |
 |--------|------|------|----------|
-| EC2 Auto-Scaling | Native AWS | 5-10 min launch time | ❌ Too slow |
-| Kubernetes (EKS) | Industry standard | Massive complexity | ❌ Over-engineering |
-| AWS Lambda | Unlimited scale | Cold start 1-3s | ❌ Cold start unacceptable |
-| ECS Fargate | Managed | Requires AWS (not local) | ⏳ For production |
-| **Docker + Python Script** | 30s scale, $0, simple | Not production-grade | ✅ **CHOSEN** |
+| EC2 Auto-Scaling | Native AWS | Launch time chậm (phút để boot VM) | ❌ Too slow |
+| Kubernetes (EKS) | Industry standard | Massive complexity, steep learning curve | ❌ Over-engineering |
+| AWS Lambda | Unlimited scale | Cold start ảnh hưởng latency | ❌ Cold start unacceptable |
+| ECS Fargate | Managed | Requires AWS (không chạy local) | ⏳ For production |
+| **Docker + Python Script** | Scale nhanh, $0, simple | Not production-grade | ✅ **CHOSEN** |
 
 #### Trade-offs Accepted
 
 | Trade-off | What We Give Up | What We Gain |
-|-----------|-----------------|--------------|
-| **Simplicity vs Maturity** | Production-grade (k8s) | 0 learning curve, ship faster |
-| **Cold Start vs Cost** | 30-60s delay | $0 infrastructure |
-| **Reactive vs Predictive** | ML-based prediction | Simple threshold logic |
+|-----------|-----------------|--------------||
+| **Simplicity vs Production-Grade** | k8s features (HA, self-healing) | 0 learning curve, ship faster |
+| **Cold Start vs Always-Warm** | Có delay khi scale out | $0 infrastructure, elastic capacity |
+| **Local Portability vs Cloud-Native** | Managed service features | Mọi dev chạy được trên laptop |
+| **Reactive vs Predictive** | ML-based prediction | Simple threshold logic, quick to build |
 
-**Measured Impact:** Auto-scaled **2→7 replicas** trong 5 phút load test
+**Expected Impact:** Hệ thống tự động scale theo traffic patterns, đã chứng minh qua load test
 
 
 > 📄 **Chi tiết đầy đủ:** [ADR-004-auto-scaling.md](./ADR/ADR-004-auto-scaling.md)
@@ -302,10 +307,10 @@ quadrantChart
 
 | Spectrum | Left ◄───────────────────► Right | Our Decisions |
 |----------|----------------------------------|---------------|
-| **Latency ↔ Throughput** | Low latency ↔ High throughput | Async: +200ms → +5x RPS |
-| **Consistency ↔ Availability** | Strong consistency ↔ High availability | Replicas: ~100ms lag → HA + 3x capacity |
-| **Simplicity ↔ Scalability** | Simple architecture ↔ Scalable system | 4 patterns → handle 1000 VUs |
-| **Cost ↔ Reliability** | $0 development ↔ 99.99% uptime | LocalStack → Hybrid validation |
+| **Throughput ↔ Latency** | High throughput ↔ Low latency | Async: user nhận response ngay → throughput cao hơn |
+| **Consistency ↔ Availability** | Strong consistency ↔ High availability | Replicas: có lag nhỏ → HA + capacity cao hơn |
+| **Simplicity ↔ Scalability** | Simple architecture ↔ Scalable system | 4 patterns → handle nhiều users hơn |
+| **Cost ↔ Reliability** | $0 development ↔ Production reliability | LocalStack → Hybrid validation |
 
 ---
 
@@ -320,14 +325,14 @@ quadrantChart
 - **Bài học:** Always benchmark với production-like load trước khi deploy
 
 #### Challenge 2: LocalStack Limitations
-- **Vấn đề:** SNS/SQS polling delay 1-2s (AWS thật ~100ms)
+- **Vấn đề:** SNS/SQS polling delay cao hơn AWS thật
 - **Triệu chứng:** Message processing chậm hơn expected
-- **Workaround:** Giảm polling interval từ 20s xuống 5s
+- **Workaround:** Giảm polling interval
 - **Bài học:** LocalStack tốt cho learning, cần verify trên AWS thật trước production
 
 #### Challenge 3: Read Replicas Stale Data
 - **Vấn đề:** Query trip status ngay sau create → 404 error
-- **Triệu chứng:** ~100ms replication lag gây race condition
+- **Triệu chứng:** Replication lag gây race condition
 - **Giải pháp:** Route write-after-read queries về Primary
 - **Bài học:** Understand consistency models là critical
 
@@ -392,17 +397,17 @@ quadrantChart
 
 | Priority | Task | Effort | Impact |
 |----------|------|--------|--------|
-| 🔴 High | Migrate to AWS ECS Fargate | 2 tuần | Production-ready |
-| 🔴 High | Replace LocalStack with AWS SNS/SQS | 1 tuần | Real AWS behavior |
-| 🟡 Medium | Implement WebSocket cho trip status | 1 tuần | Lower latency |
+| 🔴 High | Migrate to AWS ECS Fargate | High | Production-ready |
+| 🔴 High | Replace LocalStack with AWS SNS/SQS | Medium | Real AWS behavior |
+| 🟡 Medium | Implement WebSocket cho trip status | Medium | Lower latency |
 
 #### Medium-term (1-2 tháng)
 
 | Priority | Task | Effort | Impact |
 |----------|------|--------|--------|
-| 🟡 Medium | Add distributed tracing (Jaeger) | 1 tuần | Debug visibility |
-| 🟡 Medium | Add observability dashboards (Grafana) | 1 tuần | Monitoring |
-| 🟢 Low | Predictive auto-scaling | 2 tuần | Proactive scaling |
+| 🟡 Medium | Add distributed tracing (Jaeger) | Medium | Debug visibility |
+| 🟡 Medium | Add observability dashboards (Grafana) | Medium | Monitoring |
+| 🟢 Low | Predictive auto-scaling | High | Proactive scaling |
 
 ### 5.4 Cost Projection
 

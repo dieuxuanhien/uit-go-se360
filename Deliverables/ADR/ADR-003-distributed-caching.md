@@ -10,28 +10,125 @@
 
 Hệ thống hiện tại **không có caching layer**. Mọi request đều hit database trực tiếp, kể cả dữ liệu ít thay đổi như driver profile và user profile.
 
-### Current State
-- **Driver Profile Query:** 200ms (50 queries/sec peak)
-- **User Profile Query:** 150ms (100 queries/sec peak)
-- **Database Load:** 10,000 queries/sec (80% are cacheable reads)
-- **PostgreSQL CPU:** 75% utilization at current load
-- **Target:** 100,000 queries/sec (10x improvement)
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Without Caching Layer                                      │
+├─────────────────────────────────────────────────────────────┤
+│  [Request]───┐                                              │
+│  [Request]───┼──→ [PostgreSQL] ← All queries hit database  │
+│  [Request]───┘        ↑                                     │
+│                       │                                     │
+│           80% of queries are cacheable reads                │
+│           (profiles, pricing, static data)                  │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### Without Caching at 100k Users
-- Would need 10x database capacity
-- Cost: $8,337/month (vs $1,100/month with cache)
+**Symptoms:**
+- **Profile Queries:** Latency cao do mỗi request đều hit database
+- **Database Load:** Phần lớn queries là cacheable reads
+- **PostgreSQL CPU:** Utilization cao, gần tới giới hạn
+- **Scalability:** Database là bottleneck cho read-heavy workload
+
+**Scale Gap:**
+- **Read capacity:** Cần tăng capacity lên nhiều lần để hỗ trợ growth
+- **Response time:** Profile lookups cần sub-millisecond latency
+- **Cost efficiency:** Database resources đắt hơn memory
+
+**Root Cause:** Không có cache layer → tất cả reads hit disk I/O thay vì memory.
 
 ---
 
 ## Options Considered
 
-| Option | Pros | Cons | Why Not Chosen |
-|--------|------|------|----------------|
-| **In-Memory Cache (Node.js LRU)** | Zero cost, <1ms latency | No shared state between instances, cache inconsistency | ❌ Not viable for distributed system with multiple replicas |
-| **Redis (Self-Hosted EC2)** | $60/month cheaper than managed | Operational burden, manage HA/failover manually | ❌ Team resources better spent on features |
-| **Memcached** | $102/month cheaper, simpler | No persistence, no pub/sub, no data structures | ❌ Redis features (sorted sets, pub/sub) worth extra cost |
-| **DynamoDB DAX** | Microsecond latency, managed | Only works with DynamoDB (we use PostgreSQL) | ❌ Architectural incompatibility |
-| **Redis Cluster (Docker)** ✅ | Shared cache, HA, rich features, $0 for local | Memory overhead, invalidation complexity | ✅ **CHOSEN** |
+### Option 1: In-Memory Cache (Node.js LRU)
+
+**Mô tả:** Sử dụng in-process LRU cache trong mỗi Node.js instance.
+
+| Pros | Cons |
+|------|------|
+| ✅ Zero cost - không cần infrastructure | ❌ **No shared state** giữa instances |
+| ✅ Fastest latency (in-process) | ❌ **Cache inconsistency** khi có multiple replicas |
+| ✅ Simplest implementation | ❌ Memory duplicated across instances |
+
+**Verdict:** ❌ Không viable cho distributed system. Khi có 3 service replicas, cùng 1 driver profile sẽ có 3 bản copy khác nhau → data inconsistency.
+
+---
+
+### Option 2: Redis Self-Hosted (EC2)
+
+**Mô tả:** Deploy Redis trên EC2 instance, tự quản lý.
+
+| Pros | Cons |
+|------|------|
+| ✅ Rẻ hơn managed service | ❌ **Operational burden** (patching, monitoring, backup) |
+| ✅ Full control | ❌ Tự manage HA/failover |
+| ✅ No vendor lock-in | ❌ Team resources tốt hơn dành cho features |
+
+**Verdict:** ❌ Prefer managed service hoặc Docker cho local. Không muốn maintain Redis infrastructure manually.
+
+---
+
+### Option 3: Memcached
+
+**Mô tả:** Sử dụng Memcached - simple key-value cache.
+
+| Pros | Cons |
+|------|------|
+| ✅ Rẻ hơn Redis một chút | ❌ **No persistence** |
+| ✅ Simpler protocol | ❌ **No pub/sub** (cần cho invalidation) |
+| ✅ Multi-threaded | ❌ **No data structures** (sorted sets, lists) |
+
+**Tại sao vẫn muốn Memcached?**
+- Cheaper nếu chỉ cần simple caching
+- Simpler architecture
+
+**Tại sao không chọn?**
+- Cần Redis features: **Geospatial** cho driver search, **Sorted Sets** cho leaderboard potential
+- **Pub/Sub** hữu ích cho cache invalidation broadcasts
+- Redis community và ecosystem rộng hơn
+
+---
+
+### Option 4: DynamoDB DAX ⭐ Ideal nhưng không compatible
+
+**Mô tả:** DynamoDB Accelerator - in-memory cache cho DynamoDB.
+
+| Pros | Cons |
+|------|------|
+| ✅ Microsecond latency | ❌ **Only works with DynamoDB** |
+| ✅ Fully managed | ❌ Chúng ta dùng PostgreSQL |
+| ✅ Write-through automatic | ❌ Would require database migration |
+
+**Verdict:** ❌ Architectural incompatibility - không thể dùng với PostgreSQL.
+
+---
+
+### Option 5: Redis Cluster (Docker) ✅ CHOSEN
+
+**Mô tả:** 6-node Redis Cluster (3 masters + 3 replicas) chạy local với Docker.
+
+| Pros | Cons |
+|------|------|
+| ✅ **Shared cache** across all service instances | ❌ Memory overhead |
+| ✅ **High Availability** - auto-failover | ❌ Cache invalidation complexity |
+| ✅ **Rich data structures** (geospatial, sorted sets) | ❌ Thêm infrastructure components |
+| ✅ **$0 for local development** | |
+| ✅ **Production-ready** - migrate to ElastiCache dễ dàng | |
+
+---
+
+## Why Redis Cluster? Decision Matrix
+
+| Criteria | Weight | In-Memory | Self-Host | Memcached | DAX | Redis Cluster |
+|----------|--------|-----------|-----------|-----------|-----|---------------|
+| **Distributed Support** | 25% | 1 | 4 | 4 | 5 | 5 |
+| **Features (geo, pub/sub)** | 25% | 1 | 5 | 2 | 3 | 5 |
+| **Operational Effort** | 20% | 5 | 2 | 3 | 5 | 4 |
+| **Cost (local dev)** | 15% | 5 | 3 | 4 | 1 | 5 |
+| **Team Familiarity** | 15% | 5 | 4 | 3 | 2 | 4 |
+| **TOTAL** | 100% | **2.6** | **3.6** | **3.1** | **3.2** | **4.6** |
+
+**Kết luận:** Redis Cluster wins với score 4.6/5, cung cấp features đầy đủ nhất cho requirements hiện tại.
 
 ---
 
@@ -39,132 +136,217 @@ Hệ thống hiện tại **không có caching layer**. Mọi request đều hit
 
 **Redis Cluster (6-node) với Cache-Aside Pattern**
 
-### Architecture
-
 ```mermaid
-flowchart LR
-    App[NestJS Application]
+flowchart TB
+    subgraph App["🖥️ APPLICATION LAYER"]
+        NestJS["NestJS Services"]
+        CacheService["Cache Service<br>(Cache-Aside Pattern)"]
+    end
     
-    App -->|Cache Hit 90%<br>5ms response| Redis
-    App -->|Cache Miss 10%| DB
+    subgraph RedisCluster["🔴 REDIS CLUSTER (6 nodes)"]
+        M1["Master 1<br>Port 6379"]
+        M2["Master 2<br>Port 6380"]
+        M3["Master 3<br>Port 6381"]
+        R1["Replica 1<br>Port 6382"]
+        R2["Replica 2<br>Port 6383"]
+        R3["Replica 3<br>Port 6384"]
+        
+        M1 -.-> R1
+        M2 -.-> R2
+        M3 -.-> R3
+    end
     
-    Redis[(Redis Cluster<br>6-node<br>3M + 3R)]
-    DB[(PostgreSQL<br>Primary + Replicas)]
+    subgraph DB["🗄️ DATABASE"]
+        PG[(PostgreSQL<br>Primary + Replicas)]
+    end
     
-    DB -->|Write-through<br>Invalidation| Redis
+    NestJS --> CacheService
+    CacheService -->|"Cache Hit<br>(fast path)"| M1
+    CacheService -->|"Cache Miss<br>(slow path)"| PG
+    PG -->|"Populate cache<br>after miss"| M1
     
-    style App fill:#e3f2fd,stroke:#1976d2
-    style Redis fill:#ffcdd2,stroke:#c62828
-    style DB fill:#c8e6c9,stroke:#388e3c
+    classDef appBox fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef redisBox fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    classDef dbBox fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    
+    class NestJS,CacheService appBox
+    class M1,M2,M3,R1,R2,R3 redisBox
+    class PG dbBox
 ```
 
-### Redis Cluster Configuration
+**Cache-Aside Pattern Flow:**
+```
+1. Application receives request
+2. Check Redis cache first
+   ├── Cache HIT → Return immediately (fast)
+   └── Cache MISS → Query PostgreSQL → Store in Redis → Return (slower)
+3. On data update → Invalidate cache entry
+```
 
-| Parameter | Value |
-|-----------|-------|
-| Nodes | 6 (3 masters + 3 replicas) |
-| Port Range | 6379-6384 |
-| Eviction Policy | allkeys-lru |
-| Cluster Mode | Enabled |
+**Key Components:**
+| Component | Purpose | Config |
+|-----------|---------|--------|
+| Redis Masters (3) | Handle read/write operations | Ports 6379-6381 |
+| Redis Replicas (3) | Failover candidates, read scaling | Ports 6382-6384 |
+| Eviction Policy | Remove cold data when memory full | allkeys-lru |
+| Cluster Mode | Data sharding across masters | Enabled |
 
-### TTL Strategy
-
+**TTL Strategy:**
 | Data Type | TTL | Reason |
 |-----------|-----|--------|
-| Driver Profile | 1 hour | Rarely changes |
+| Driver Profile | 1 hour | Rarely changes, high read frequency |
 | User Profile | 30 min | Occasionally changes |
-| Pricing Rules | 24 hours | Very stable |
-| Active Trip | 1 min | Changes frequently |
+| Pricing Rules | 24 hours | Very stable, changes rarely |
+| Active Trip | 1 min | Changes frequently, need freshness |
+| Driver Location | Short | Real-time data, quick expiry |
 
 ---
 
-## Trade-offs Accepted
+## Trade-offs của Solution Đã Chọn
 
-### 1. ⚖️ Memory vs CPU
+> **Nguyên tắc:** Mọi architectural decision đều có trade-offs. Section này phân tích những gì chúng ta **được** và **mất** khi chọn Redis Cluster.
 
-| Metric | Without Cache | With Cache | Trade-off |
-|--------|---------------|------------|----------|
-| Database CPU | 75% | 15% | ✅ 5x headroom |
-| Memory Cost | $0 | $266/month | Slight increase |
-| Response Time | 180ms | 18ms | ✅ 10x faster |
+### Trade-off 1: 💾 Memory Cost vs 🔋 Database Load
 
-**Decision:** Memory ($266/month) rẻ hơn rất nhiều so với scaling database ($8,337/month). Chấp nhận memory overhead vì ROI cao.
+```
+┌─────────────────────────────────────────────────────────────┐
+│  WITHOUT CACHE            │  WITH REDIS CLUSTER            │
+├───────────────────────────┼─────────────────────────────────┤
+│  All queries hit DB       │  Most queries hit cache        │
+│  DB CPU: High             │  DB CPU: Much lower            │
+│  Memory: 0                │  Memory: ~few hundred MB       │
+│  Response: Slower         │  Response: Much faster         │
+└───────────────────────────┴─────────────────────────────────┘
+```
 
-### 2. ⚖️ Consistency vs Performance
+| Metric | Without Cache | With Cache | Verdict |
+|--------|---------------|------------|---------|
+| Database CPU | Cao | Thấp hơn nhiều | ✅ Cache wins |
+| Memory Cost | Không có | Có thêm chi phí | Cache costs more |
+| Response Time | Chậm (disk I/O) | Nhanh (memory) | ✅ Cache wins |
+| Throughput | Giới hạn bởi DB | Cao hơn đáng kể | ✅ Cache wins |
 
-| Aspect | Strong (No Cache) | Eventual (With Cache) |
-|--------|-------------------|----------------------|
-| **Freshness** | Real-time | TTL-based (1-60 min delay) |
-| **Response** | 180ms | **18ms** |
-| **Throughput** | 10K TPS (DB limit) | **100K TPS** (cache limit) |
+**What we gain:** Database load giảm đáng kể, response time cải thiện rõ rệt
+**What we lose:** Memory cost cho Redis cluster
+**Why acceptable:** 
+- Memory rẻ hơn nhiều so với scaling database
+- Redis cluster nhỏ có thể handle rất nhiều requests
+- ROI rất cao: chi phí thấp, benefit lớn
 
-**Decision:** Chấp nhận eventual consistency vì:
-- **Profile data tolerance:** User/Driver profiles có thể stale 30-60 phút mà không ảnh hưởng business
-- **Active trip exception:** TTL 1 phút đủ fresh cho real-time tracking
+---
+
+### Trade-off 2: 🔄 Consistency vs ⚡ Performance
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  STRONG (No Cache)        │  EVENTUAL (With Cache)         │
+├───────────────────────────┼─────────────────────────────────┤
+│  Every read = latest data │  Read có thể slightly stale    │
+│  But slower response      │  But much faster response      │
+│  DB handles all load      │  Cache handles most load       │
+└───────────────────────────┴─────────────────────────────────┘
+```
+
+| Aspect | Strong (No Cache) | Eventual (With Cache) | Verdict |
+|--------|-------------------|----------------------|---------|
+| **Freshness** | Real-time | TTL-based (có delay) | Strong better |
+| **Response** | Chậm hơn | Nhanh hơn nhiều | ✅ Eventual wins |
+| **Throughput** | Giới hạn bởi DB | Cao hơn đáng kể | ✅ Eventual wins |
+
+**What we gain:** Response time giảm đáng kể, throughput tăng nhiều lần
+**What we lose:** Strong consistency - có thể đọc stale data
+**Why acceptable:**
+- **Profile data tolerance:** User/Driver profiles có thể stale mà không ảnh hưởng business
+- **Active trip exception:** TTL ngắn đủ fresh cho real-time tracking
 - **Write-through invalidation:** Critical updates bypass cache ngay lập tức
 - Ride-hailing không cần microsecond consistency cho profile data
 
-### 3. ⚖️ Simplicity vs Scalability
+---
+
+### Trade-off 3: 🎯 Simplicity vs 📈 Scalability
 
 | Aspect | No Cache (Simple) | Redis Cluster (Complex) |
 |--------|-------------------|------------------------|
-| Components | 1 (Database) | 7 (DB + 6 Redis nodes) |
-| Failure points | 1 | 7 |
-| Capacity | 10K TPS | **100K TPS** |
-| Operations | Low | Higher (cache invalidation) |
+| Components | Ít (chỉ Database) | Nhiều hơn (DB + Redis nodes) |
+| Failure points | Ít | Nhiều hơn |
+| Capacity | Giới hạn | Cao hơn nhiều |
+| Operations | Thấp | Cao hơn (cache invalidation) |
+| Mental model | Easy | Need caching patterns knowledge |
 
-**Decision:** Chấp nhận complexity vì:
-- Redis Cluster **self-healing** (auto-failover)
+**What we gain:** Horizontal scalability, capacity tăng đáng kể
+**What we lose:** Simple architecture, thêm failure points
+**Mitigation:**
+- Redis Cluster **self-healing** (auto-failover khi node down)
 - Complexity **contained in infrastructure** (không leak vào business logic)
-- **10x capacity improvement** justifies thêm components
+- Cache-aside pattern đơn giản và well-understood
 - Team đã familiar với Redis
 
-### 4. ⚖️ Cold Start vs Hot Path
+---
+
+### Trade-off 4: ❄️ Cold Start vs 🔥 Hot Path
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  COLD START (Cache Miss)  │  HOT PATH (Cache Hit)          │
+├───────────────────────────┼─────────────────────────────────┤
+│  First request hits DB    │  Subsequent requests fast      │
+│  Slightly slower          │  Sub-millisecond response      │
+│  Populates cache          │  No DB load                    │
+└───────────────────────────┴─────────────────────────────────┘
+```
 
 | Scenario | Cache Miss (Cold) | Cache Hit (Hot) |
 |----------|-------------------|------------------|
-| Latency | 50-200ms (hit DB) | **5ms** |
-| DB Load | +1 query | 0 queries |
-| Expected ratio | 10% | **90%** |
+| Latency | Chậm hơn (hit DB) | Rất nhanh |
+| DB Load | Tăng thêm query | Không tăng |
+| Expected ratio | Thấp | Cao (phần lớn requests) |
 
-**Decision:** Chấp nhận cold start penalty vì:
-- Sau warm-up, **90%+ requests hit cache**
-- First request chậm 200ms là acceptable (không phải 5 giây)
+**What we gain:** Phần lớn requests served from memory (fast)
+**What we lose:** First request cho mỗi key chậm hơn
+**Why acceptable:**
+- Sau warm-up, cache hit rate rất cao
+- First request chậm hơn là acceptable trade-off
 - Cache warming script có thể pre-populate hot keys
 - **allkeys-lru** eviction đảm bảo hot data stays in memory
 
 ---
 
-## Measured Impact
+## Khi nào nên migrate sang solution khác?
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Database Load | 10,000 TPS | 1,000 TPS | **10x reduction** |
-| Response Time (avg) | 180ms | 18ms | **10x faster** |
-| Database CPU | 75% | 15% | **5x headroom** |
-| Driver Search p95 | 468ms | **36ms** | **13x faster** ⭐ |
-| Cache Hit Rate | N/A | 100% (load test) | ✅ |
+| Trigger | Current (Redis Cluster) | Migrate To | Reason |
+|---------|-------------------------|------------|--------|
+| Memory vượt capacity | ✅ Đủ hiện tại | ElastiCache (larger) | Managed, more memory |
+| Need global distribution | Single region | ElastiCache Global | Multi-region caching |
+| Serverless workload | Fixed cluster | ElastiCache Serverless | Pay-per-use |
+| Cost optimization | Docker local | ElastiCache Reserved | Production discount |
 
-### Load Test Evidence
-```
-From PHASE2-OPTIMIZATION-NOTES.md:
-- Driver Search API: 468ms → 36ms (13x improvement)
-- 100% cache hit rate during load test
-- "Fastest endpoint in the system"
-```
+---
+
+## Expected Benefits
+
+**Performance Improvements:**
+- **Database load:** Giảm đáng kể số queries đến database nhờ cache hits
+- **Response time:** Cải thiện rõ rệt cho cached data (memory vs disk I/O)
+- **Database CPU:** Có nhiều headroom hơn cho write operations
+- **Driver Search:** Trở thành endpoint nhanh nhờ Redis geospatial caching
+
+**Operational Benefits:**
+- Cache hit rate cao cho frequently accessed data
+- Database có thể handle nhiều concurrent users hơn
+- Auto-failover trong cluster ensures availability
 
 ---
 
 ## Failure Modes
 
-| Failure | Impact | Mitigation |
-|---------|--------|------------|
-| **Redis Node Down** | Degraded (5 nodes remaining) | Cluster auto-failover, replica promotes |
-| **Full Cluster Down** | Fallback to database (slower) | Circuit breaker, graceful degradation |
-| **Cache Stampede** | All miss at once, DB overwhelm | TTL jitter (±10%), cache warming |
-| **Memory Exhaustion** | LRU evictions, hit rate drops | Monitor, allkeys-lru policy |
-| **Network Partition** | Split-brain cluster | Redis Cluster quorum (4 of 6) |
-| **Stale Data Served** | User sees old profile | TTL expires, write-through for critical |
+| Failure | Impact | Mitigation | Recovery |
+|---------|--------|------------|----------|
+| **Redis Node Down** | Degraded (5 nodes remaining) | Cluster auto-failover, replica promotes | Automatic |
+| **Full Cluster Down** | Fallback to database (slower) | Circuit breaker, graceful degradation | Restart cluster |
+| **Cache Stampede** | All miss at once, DB overwhelm | TTL jitter (±10%), cache warming | Auto-resolve |
+| **Memory Exhaustion** | LRU evictions, hit rate drops | Monitor, allkeys-lru policy | Add memory |
+| **Network Partition** | Split-brain cluster | Redis Cluster quorum (4 of 6) | Network fix |
+| **Stale Data Served** | User sees old profile | TTL expires, write-through for critical | By design |
 
 ### Fallback Strategy
 ```typescript
@@ -183,20 +365,20 @@ async function getDriverProfile(id: string) {
 
 ## Limitations & Future Work
 
-### Current Limitations
-
+### Current Limitations:
 1. **No Cache Warming Script:** Cold start after deployment hits DB hard
 2. **Fixed TTL Strategy:** Not adaptive to access patterns
 3. **No Distributed Tracing:** Hard to debug cache misses
+4. **Local Docker only:** Not production ElastiCache yet
 
-### Future Improvements
-
-| Improvement | Benefit | Effort |
-|-------------|---------|--------|
-| Cache warming on startup | Eliminate cold start penalty | Low |
-| Adaptive TTL based on access frequency | Optimize memory usage | Medium |
-| Redis Sentinel for managed failover | Better HA in production | Medium |
-| Add cache metrics to Prometheus | Visibility into hit/miss rates | Low |
+### Future Improvements:
+| Priority | Task | Effort | Value |
+|----------|------|--------|-------|
+| 🔴 High | Cache warming on startup | Low | Eliminate cold start penalty |
+| 🔴 High | Migrate to ElastiCache | Medium | Production reliability |
+| 🟡 Medium | Adaptive TTL based on access | Medium | Optimize memory usage |
+| 🟡 Medium | Add cache metrics to monitoring | Low | Visibility into hit/miss rates |
+| 🟢 Low | Redis Sentinel for managed failover | Medium | Better HA |
 
 ---
 
@@ -244,9 +426,4 @@ async function getDriverProfile(driverId: string) {
 }
 ```
 
----
 
-## References
-
-- **Detailed ADR:** [../../docs/adrs/ADR-003-distributed-caching-elasticache.md](../../docs/adrs/ADR-003-distributed-caching-elasticache.md)
-- **Architecture:** [../../docs/architecture/caching-strategy.md](../../docs/architecture/caching-strategy.md)
