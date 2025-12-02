@@ -137,49 +137,73 @@ Hệ thống hiện tại **không có caching layer**. Mọi request đều hit
 **Redis Cluster (6-node) với Cache-Aside Pattern**
 
 ```mermaid
-flowchart TB
-    subgraph App["🖥️ APPLICATION LAYER"]
-        NestJS["NestJS Services<br>(User, Trip, Driver)"]
-        CacheService["Cache Service<br>Cache-Aside Pattern"]
+graph TB
+    subgraph APP["💻 APPLICATION LAYER"]
+        US["User Service<br/>(NestJS)"]
+        TS["Trip Service<br/>(NestJS)"]
+        DS["Driver Service<br/>(NestJS)"]
     end
-    
-    subgraph RedisCluster["🔴 REDIS CLUSTER (6 nodes - Data Sharded)"]
-        M1["Master 1<br>Port 6379<br>Slot 0-5460"]
-        M2["Master 2<br>Port 6380<br>Slot 5461-10922"]
-        M3["Master 3<br>Port 6381<br>Slot 10923-16383"]
-        R1["Replica 1<br>Port 6382"]
-        R2["Replica 2<br>Port 6383"]
-        R3["Replica 3<br>Port 6384"]
-        
-        M1 -.->|Replication| R1
-        M2 -.->|Replication| R2
-        M3 -.->|Replication| R3
-    end
-    
+
     subgraph DB["🗄️ DATABASE"]
-        PG[(PostgreSQL<br>Primary + Replicas)]
+        USDB[("PostgreSQL<br/>User DB")]
+        TSDB[("PostgreSQL<br/>Trip DB")]
     end
-    
-    NestJS --> CacheService
-    CacheService -->|"Cache Hit<br>(Fast Path)"| M1
-    CacheService -->|"Cache Hit<br>(Fast Path)"| M2
-    CacheService -->|"Cache Hit<br>(Fast Path)"| M3
-    
-    CacheService -->|"Cache Miss<br>(Slow Path)"| PG
-    PG -.->|"Populate Cache"| M1
-    PG -.->|"Populate Cache"| M2
-    PG -.->|"Populate Cache"| M3
-    
-    style NestJS fill:#e3f2fd,stroke:#1976d2
-    style CacheService fill:#e1f5fe,stroke:#0288d1
-    style M1 fill:#ffcdd2,stroke:#c62828
-    style M2 fill:#ffcdd2,stroke:#c62828
-    style M3 fill:#ffcdd2,stroke:#c62828
-    style R1 fill:#fff3e0,stroke:#f57c00
-    style R2 fill:#fff3e0,stroke:#f57c00
-    style R3 fill:#fff3e0,stroke:#f57c00
-    style PG fill:#c8e6c9,stroke:#388e3c
+
+    subgraph REDIS["🔴 REDIS CLUSTER (6 nodes = 3 masters + 3 replicas)"]
+        M1["Master 1<br/>Port 6379<br/>Slot 0-5460"]
+        M2["Master 2<br/>Port 6380<br/>Slot 5461-10922"]
+        M3["Master 3<br/>Port 6381<br/>Slot 10923-16383"]
+        R1["Replica 1<br/>Port 6382"]
+        R2["Replica 2<br/>Port 6383"]
+        R3["Replica 3<br/>Port 6384"]
+    end
+
+    subgraph REDIS_STANDALONE["🔴 REDIS STANDALONE"]
+        REDIS_GEO["Redis Geo<br/>Port 6379<br/>Driver Locations"]
+    end
+
+    %% User Service flows
+    US -->|"Cache Hit<br/>(Fast Path)"| M1
+    US -->|"Cache Hit<br/>(Fast Path)"| M2
+    US -->|"Cache Hit<br/>(Fast Path)"| M3
+    US -->|"Cache Miss<br/>(Direct Query)"| USDB
+    USDB -.->|"Populate Cache"| M1
+    USDB -.->|"Populate Cache"| M2
+    USDB -.->|"Populate Cache"| M3
+
+    %% Trip Service (No Cache)
+    TS -->|"Direct Query<br/>(No Cache)"| TSDB
+
+    %% Driver Service (Standalone Redis)
+    DS -->|"GEORADIUS<br/>Geospatial Queries"| REDIS_GEO
+
+    %% Redis Cluster Replication
+    M1 -.->|Replication| R1
+    M2 -.->|Replication| R2
+    M3 -.->|Replication| R3
+
+    %% Styling
+    style US fill:#ffc,stroke:#333,color:#000
+    style TS fill:#ffc,stroke:#333,stroke-dasharray: 5 5,color:#000
+    style DS fill:#ffc,stroke:#333,color:#000
+    style USDB fill:#cfc,stroke:#333,color:#000
+    style TSDB fill:#cfc,stroke:#333,color:#000
+    style M1 fill:#fcc,stroke:#333,color:#000
+    style M2 fill:#fcc,stroke:#333,color:#000
+    style M3 fill:#fcc,stroke:#333,color:#000
+    style R1 fill:#fdd,stroke:#333,color:#000
+    style R2 fill:#fdd,stroke:#333,color:#000
+    style R3 fill:#fdd,stroke:#333,color:#000
+    style REDIS_GEO fill:#fcf,stroke:#333,color:#000
 ```
+
+**Actual Implementation Details:**
+
+- ✅ **User Service**: Sử dụng Redis Cluster (6 nodes) với cache-aside pattern cho user profiles
+- ⚠️ **Trip Service**: KHÔNG có caching được implement (chỉ query PostgreSQL trực tiếp)
+- ✅ **Driver Service**: Sử dụng standalone Redis cho geospatial queries (GEORADIUS)
+- **Redis Cluster**: 3 masters xử lý data (CRC16 hash slot routing) + 3 replicas cho HA
+- **Cache Pattern**: Cache-aside với write-through invalidation (chỉ User Service)
 
 **Cache-Aside Pattern Flow:**
 ```
