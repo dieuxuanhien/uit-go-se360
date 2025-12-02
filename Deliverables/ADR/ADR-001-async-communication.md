@@ -130,13 +130,20 @@ TripService --[HTTP SYNC]--> DriverService --[Query DB]--> Response --[several s
 
 ## Chosen Solution
 
-**Event-Driven Architecture với AWS SNS/SQS (emulated via LocalStack for $0 development cost)**
+**Hybrid Architecture: SNS/SQS Events + Sync HTTP (emulated via LocalStack for $0 development cost)**
 
 ```mermaid
 flowchart TB
-    subgraph Publisher["📤 TRIP SERVICE (Publisher)"]
+    subgraph Client["👤 CLIENT"]
+        User["User/Mobile App"]
+    end
+
+    subgraph UserSvc["📱 USER SERVICE"]
+        US["UserService<br/>(Port 3001)"]
+    end
+
+    subgraph Publisher["📤 TRIP SERVICE"]
         TS["🚗 TripService<br/>(Port 3002)"]
-        HTTP["⚡ HTTP 201<br/>status: PENDING<br/>(instant response)"]
     end
 
     subgraph SNS["📢 SNS TOPIC"]
@@ -153,13 +160,26 @@ flowchart TB
         DLQ2["trip-update-dlq"]
     end
 
-    subgraph Consumer["📥 DRIVER SERVICE (Consumer)"]
-        DS["📍 DriverService<br/>Match Driver & Respond"]
+    subgraph Consumer["📥 DRIVER SERVICE"]
+        DS["📍 DriverService<br/>(Port 3003)"]
     end
 
-    %% Trip Creation Flow
-    TS -->|"1. Return immediately"| HTTP
-    TS -->|"2. SNS Publish<br/>(TripRequested)"| Topic
+    %% User to UserService (Sync)
+    User -->|"① POST /trips"| US
+
+    %% UserService to TripService (Sync HTTP)
+    US -->|"② HTTP POST /trips<br/>(Sync)"| TS
+
+    %% TripService to DriverService (Sync HTTP) - CRITICAL!
+    TS -->|"③ HTTP GET<br/>searchNearbyDrivers<br/>(Sync Block)"| DS
+    DS -->|"④ Return drivers list"| TS
+
+    %% TripService Response (Sync)
+    TS -->|"⑤ HTTP 201<br/>status: PENDING<br/>(instant)"| US
+    US -->|"⑥ Return to User"| User
+
+    %% TripService to SNS (Async Background)
+    TS -->|"⑦ SNS Publish<br/>(TripRequested)<br/>(Background)"| Topic
 
     %% SNS Fan-out to Queues
     Topic -->|"Filter: TripRequested"| SQS1
@@ -171,35 +191,131 @@ flowchart TB
     SQS2 -.->|"maxReceiveCount: 3"| DLQ2
 
     %% Driver Service processes and responds
-    SQS1 -->|"3. Poll & Process"| DS
-    DS -->|"4. SNS Publish<br/>(TripMatched)"| Topic
+    SQS1 -->|"⑧ Poll & Process"| DS
+    DS -->|"⑨ SNS Publish<br/>(TripMatched)"| Topic
 
     %% Trip Service receives update
-    SQS2 -->|"5. Poll & Update<br/>Trip Status"| TS
+    SQS2 -->|"⑩ Poll & Update<br/>Trip Status"| TS
 
+    %% Additional Sync HTTP Calls (Real-time queries)
+    TS -.->|"HTTP GET<br/>getDriverLocation<br/>(Real-time query)"| DS
+    TS -.->|"HTTP PUT<br/>updateDriverStatus<br/>(Status sync)"| DS
+
+    classDef userBox fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef usBox fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     classDef tsBox fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
     classDef snsBox fill:#fff3e0,stroke:#f57c00,stroke-width:2px
     classDef sqsBox fill:#fce4ec,stroke:#c2185b,stroke-width:2px
     classDef dlqBox fill:#ffcdd2,stroke:#c62828,stroke-width:2px
     classDef dsBox fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-    classDef httpBox fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
 
+    class User userBox
+    class US usBox
     class TS tsBox
     class Topic snsBox
     class SQS1,SQS2 sqsBox
     class DLQ1,DLQ2 dlqBox
     class DS dsBox
-    class HTTP httpBox
 ```
 
-**Message Flow:**
-1. **TripService** nhận request tạo trip → trả về HTTP 201 ngay lập tức
-2. **TripService** publish `TripRequested` event lên SNS
-3. **SNS** fan-out đến `driver-match-queue` (filter: TripRequested)
-4. **DriverService** poll queue, tìm driver phù hợp
-5. **DriverService** publish `TripMatched` event lên SNS
-6. **SNS** fan-out đến `trip-update-queue` (filter: TripMatched)
-7. **TripService** poll queue, update trip status thành MATCHED
+**Message Flow (Chi tiết từng bước):**
+
+### 🔄 Phase 1: Sync Request Flow (User nhận response ngay)
+
+**① User → UserService: POST /trips**
+- User gửi request tạo chuyến đi
+- Payload: pickup location, destination, payment method
+- UserService validate user authentication
+
+**② UserService → TripService: HTTP POST /trips (Sync)**
+- UserService forward request đến TripService
+- Thêm userId vào request
+- **Blocking call** - UserService chờ TripService response
+
+**③ TripService → DriverService: HTTP GET searchNearbyDrivers (Sync Block)**
+- TripService cần tìm drivers xung quanh pickup location
+- Query: `GET /drivers/search?latitude=...&longitude=...&radius=5km`
+- **CRITICAL:** Đây là sync blocking call - TripService thread bị block chờ DriverService
+- Timeout: 5 seconds, retry: 3 lần
+- **Tại sao sync?** Cần biết có drivers available trước khi accept trip
+
+**④ DriverService → TripService: Return drivers list**
+- DriverService query Redis geospatial index
+- Trả về list drivers trong bán kính 5km
+- Response time: ~100-200ms (nhanh vì query Redis)
+
+**⑤ TripService → UserService: HTTP 201 PENDING**
+- TripService tạo trip record trong DB với status `PENDING`
+- Trả về tripId, status, estimatedPrice
+- Response time: <500ms (bao gồm cả bước ③④)
+
+**⑥ UserService → User: Return to User**
+- User nhận thông báo "Đang tìm tài xế..." với status PENDING
+- Frontend bắt đầu poll `/trips/{tripId}` để cập nhật status
+- **End of sync flow** - User không bị block thêm
+
+---
+
+### ⚡ Phase 2: Async Background Processing (Driver matching)
+
+**⑦ TripService → SNS: Publish TripRequested event (Background)**
+- **Non-blocking** - xảy ra sau khi đã trả response cho user
+- Event payload: `{ tripId, pickupLocation, destination, userId }`
+- SNS publish time: ~10ms
+- Event được broadcast đến tất cả subscribers
+
+**SNS → SQS: Fan-out to multiple queues**
+- `driver-match-queue`: DriverService subscribe để match driver
+- `trip-update-queue`: TripService subscribe để nhận updates
+- Future: Analytics queue, Notification queue, etc.
+
+**⑧ DriverService: Poll & Process TripRequested**
+- DriverService long-polling SQS queue (wait time: 20s)
+- Nhận event TripRequested
+- Logic: Tìm driver phù hợp, send push notification đến drivers
+- Driver accept qua mobile app
+
+**⑨ DriverService → SNS: Publish TripMatched event**
+- Khi driver accept, DriverService publish event mới
+- Event payload: `{ tripId, driverId, estimatedArrival }`
+- SNS fan-out đến subscribers
+
+**⑩ TripService: Poll & Update Trip Status**
+- TripService nhận event TripMatched từ SQS queue
+- Update trip status: `PENDING` → `MATCHED`
+- User frontend poll thấy status mới → hiển thị driver info
+
+---
+
+### 🔧 Additional Sync HTTP Calls (Không trong main flow)
+
+**HTTP GET getDriverLocation (Real-time query)**
+- **Khi nào:** User/Driver xem vị trí real-time trong trip
+- **Endpoint:** `GET /drivers/{driverId}/location`
+- **Tại sao sync:** Real-time data, cần response ngay
+- **Frequency:** Polling mỗi 5 giây
+
+**HTTP PUT updateDriverStatus (Status sync)**
+- **Khi nào:** Driver accept trip, cần cập nhật status thành `on_trip`
+- **Endpoint:** `PUT /drivers/{driverId}/status`
+- **Graceful failure:** Nếu call fail, không làm fail transaction
+- **Retry:** 3 lần với exponential backoff
+
+---
+
+### 📊 Summary: Sync vs Async
+
+| Bước | Type | Blocking? | Tại sao? |
+|------|------|-----------|----------|
+| ①②③④⑤⑥ | **Sync** | ✅ Yes | User cần response ngay, biết trip created |
+| ⑦⑧⑨⑩ | **Async** | ❌ No | Driver matching mất thời gian, không cần block user |
+| getDriverLocation | **Sync** | ✅ Yes | Real-time data, cần ngay |
+| updateDriverStatus | **Sync** | ✅ Yes (soft) | Cập nhật status, nhưng có graceful failure |
+
+**Key Insight:** 
+- ✅ **Hybrid approach** - Sync cho immediate feedback, Async cho background processing
+- ⚠️ **Sync HTTP exists** - searchNearbyDrivers (bước ③) là blocking call quan trọng
+- 🎯 **Trade-off:** Chấp nhận blocking 100-200ms để biết có drivers available trước khi accept trip
 
 **Key Components:**
 | Component | Purpose | Config |
