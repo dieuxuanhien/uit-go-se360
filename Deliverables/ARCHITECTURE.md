@@ -289,30 +289,62 @@ flowchart TD
 
 ### 4.3 Distributed Caching (ADR-003)
 
-
 ```mermaid
-flowchart TD
-    App[NestJS Application]
+flowchart TB
+    subgraph App["🖥️ APPLICATION LAYER"]
+        US["User Service"]
+        TS["Trip Service"]
+        DS["Driver Service"]
+    end
     
-    App -->|WRITE 20%| Primary
-    App -->|READ 40%| Rep1
-    App -->|READ 40%| Rep2
+    subgraph RedisCluster["🔴 REDIS CLUSTER (6 nodes - Data Sharded)"]
+        M1["Master 1<br>Port 6379<br>Slot 0-5460"]
+        M2["Master 2<br>Port 6380<br>Slot 5461-10922"]
+        M3["Master 3<br>Port 6381<br>Slot 10923-16383"]
+        R1["Replica 1<br>Port 6382"]
+        R2["Replica 2<br>Port 6383"]
+        R3["Replica 3<br>Port 6384"]
+        
+        M1 -.->|Replication| R1
+        M2 -.->|Replication| R2
+        M3 -.->|Replication| R3
+    end
     
-    Primary[(Primary DB<br>Port 5432<br>R/W)]
-    Rep1[(Replica 1<br>Port 5433<br>Read-Only)]
-    Rep2[(Replica 2<br>Port 5434<br>Read-Only)]
+    subgraph StandaloneRedis["🔴 REDIS STANDALONE"]
+        RG["Redis Geo<br>Port 6379<br>Driver Locations"]
+    end
     
-    Primary -.->|WAL Streaming<br>Async| Rep1
-    Primary -.->|WAL Streaming<br>Async| Rep2
+    subgraph DB["🗄️ DATABASE"]
+        PGU[(PostgreSQL<br>User DB)]
+        PGT[(PostgreSQL<br>Trip DB)]
+    end
     
-    Note[Less than 100ms lag typical]
+    US -->|"Cache Hit<br>(Fast Path)"| M1
+    US -->|"Cache Hit<br>(Fast Path)"| M2
+    US -->|"Cache Hit<br>(Fast Path)"| M3
+    US -->|"Cache Miss"| PGU
     
-    style Primary fill:#c8e6c9,stroke:#388e3c
-    style Rep1 fill:#fff3e0,stroke:#f57c00
-    style Rep2 fill:#fff3e0,stroke:#f57c00
-    style App fill:#e3f2fd,stroke:#1976d2
+    TS -->|"Direct Query<br>(No Cache)"| PGT
+    
+    DS -->|"GEORADIUS<br>Geospatial Queries"| RG
+    
+    PGU -.->|"Populate Cache"| M1
+    PGU -.->|"Populate Cache"| M2
+    PGU -.->|"Populate Cache"| M3
+    
+    style US fill:#e3f2fd,stroke:#1976d2,color:#000000
+    style TS fill:#ffebee,stroke:#c62828,color:#000000,stroke-dasharray: 5 5
+    style DS fill:#e3f2fd,stroke:#1976d2,color:#000000
+    style M1 fill:#ffcdd2,stroke:#c62828,color:#000000
+    style M2 fill:#ffcdd2,stroke:#c62828,color:#000000
+    style M3 fill:#ffcdd2,stroke:#c62828,color:#000000
+    style R1 fill:#fff3e0,stroke:#f57c00,color:#000000
+    style R2 fill:#fff3e0,stroke:#f57c00,color:#000000
+    style R3 fill:#fff3e0,stroke:#f57c00,color:#000000
+    style RG fill:#f8bbd0,stroke:#c2185b,color:#000000
+    style PGU fill:#c8e6c9,stroke:#388e3c,color:#000000
+    style PGT fill:#c8e6c9,stroke:#388e3c,color:#000000
 ```
-
 
 ```typescript
 // Cache-Aside Pattern Implementation
@@ -337,8 +369,15 @@ async findById(id: string): Promise<User | null> {
 
 **Redis Cluster Configuration:**
 - 6 nodes: 3 primary + 3 replica
+- **Currently used by:** User Service ONLY (caching user profiles)
 - Cache-aside pattern với TTL 1 hour cho user profiles
 - `X-Cache-Hit` header để monitor hit rate
+- **Trip Service:** Direct PostgreSQL queries (no caching implemented yet)
+
+**Driver Service Redis:**
+- Standalone Redis instance (Port 6379)
+- **Purpose:** Geospatial queries (GEORADIUS) for driver locations
+- Can optionally switch to cluster mode via `REDIS_CLUSTER_MODE=true`
 
 ### 4.4 Auto-Scaling Infrastructure (ADR-004)
 

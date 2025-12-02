@@ -139,21 +139,21 @@ Hệ thống hiện tại **không có caching layer**. Mọi request đều hit
 ```mermaid
 flowchart TB
     subgraph App["🖥️ APPLICATION LAYER"]
-        NestJS["NestJS Services"]
-        CacheService["Cache Service<br>(Cache-Aside Pattern)"]
+        NestJS["NestJS Services<br>(User, Trip, Driver)"]
+        CacheService["Cache Service<br>Cache-Aside Pattern"]
     end
     
-    subgraph RedisCluster["🔴 REDIS CLUSTER (6 nodes)"]
-        M1["Master 1<br>Port 6379"]
-        M2["Master 2<br>Port 6380"]
-        M3["Master 3<br>Port 6381"]
+    subgraph RedisCluster["🔴 REDIS CLUSTER (6 nodes - Data Sharded)"]
+        M1["Master 1<br>Port 6379<br>Slot 0-5460"]
+        M2["Master 2<br>Port 6380<br>Slot 5461-10922"]
+        M3["Master 3<br>Port 6381<br>Slot 10923-16383"]
         R1["Replica 1<br>Port 6382"]
         R2["Replica 2<br>Port 6383"]
         R3["Replica 3<br>Port 6384"]
         
-        M1 -.-> R1
-        M2 -.-> R2
-        M3 -.-> R3
+        M1 -.->|Replication| R1
+        M2 -.->|Replication| R2
+        M3 -.->|Replication| R3
     end
     
     subgraph DB["🗄️ DATABASE"]
@@ -161,17 +161,24 @@ flowchart TB
     end
     
     NestJS --> CacheService
-    CacheService -->|"Cache Hit<br>(fast path)"| M1
-    CacheService -->|"Cache Miss<br>(slow path)"| PG
-    PG -->|"Populate cache<br>after miss"| M1
+    CacheService -->|"Cache Hit<br>(Fast Path)"| M1
+    CacheService -->|"Cache Hit<br>(Fast Path)"| M2
+    CacheService -->|"Cache Hit<br>(Fast Path)"| M3
     
-    classDef appBox fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef redisBox fill:#ffcdd2,stroke:#c62828,stroke-width:2px
-    classDef dbBox fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    CacheService -->|"Cache Miss<br>(Slow Path)"| PG
+    PG -.->|"Populate Cache"| M1
+    PG -.->|"Populate Cache"| M2
+    PG -.->|"Populate Cache"| M3
     
-    class NestJS,CacheService appBox
-    class M1,M2,M3,R1,R2,R3 redisBox
-    class PG dbBox
+    style NestJS fill:#e3f2fd,stroke:#1976d2
+    style CacheService fill:#e1f5fe,stroke:#0288d1
+    style M1 fill:#ffcdd2,stroke:#c62828
+    style M2 fill:#ffcdd2,stroke:#c62828
+    style M3 fill:#ffcdd2,stroke:#c62828
+    style R1 fill:#fff3e0,stroke:#f57c00
+    style R2 fill:#fff3e0,stroke:#f57c00
+    style R3 fill:#fff3e0,stroke:#f57c00
+    style PG fill:#c8e6c9,stroke:#388e3c
 ```
 
 **Cache-Aside Pattern Flow:**
