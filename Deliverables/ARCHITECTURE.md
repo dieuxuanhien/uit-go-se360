@@ -58,12 +58,18 @@ flowchart TB
     NGINX --> TS
     NGINX --> DS
 
+    %% Inter-Service HTTP Calls (Sync)
+    US -->|"HTTP POST /trips<br/>(create trip)"| TS
+    US -->|"HTTP GET /trips/:id<br/>(get trip details)"| TS
+    TS -->|"HTTP GET /drivers/search<br/>(find nearby drivers)"| DS
+    TS -->|"HTTP GET /drivers/:id/location<br/>(real-time location)"| DS
+    TS -->|"HTTP PUT /drivers/:id/status<br/>(update status)"| DS
+
     %% User Service connections
     US --> RC
     RC --> PGU
 
     %% Trip Service connections
-    TS -->|"HTTP GET<br/>(driver search)"| DS
     TS -->|"SNS Publish<br/>(TripRequested)"| SNS
     TS --> PGT
 

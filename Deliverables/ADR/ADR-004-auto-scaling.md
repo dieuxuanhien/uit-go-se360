@@ -149,31 +149,39 @@ Hệ thống sử dụng **fixed containers** không có auto-scaling, dẫn đ�
 ```mermaid
 flowchart TB
     subgraph Monitor["📊 MONITORING LAYER"]
-        Script["Python Auto-Scaler<br>Monitor Docker Stats"]
-        Metrics["CPU Metrics<br>Per Container"]
+        Script["Python Auto-Scaler<br>Poll: 5s interval<br>Grace Period: 180s"]
+        Metrics["CPU + Memory Metrics<br>Per Container<br>+ Per Service Profile"]
     end
     
     subgraph Scaling["⚡ SCALING LOGIC"]
-        ScaleOut["Scale OUT<br>CPU > threshold<br>+2 instances"]
-        ScaleIn["Scale IN<br>CPU < threshold<br>-1 instance"]
+        Check["Stability Check<br>3 consecutive readings"]
+        ScaleOut["Scale OUT<br>User: CPU>55% / Mem>65%<br>Trip: CPU>50% / Mem>60%<br>Driver: CPU>40% / Mem>70%<br>+2 instances<br>Cooldown: 15-20s"]
+        ScaleIn["Scale IN<br>User: CPU<27.5% AND Mem<32.5%<br>Trip: CPU<25% AND Mem<30%<br>Driver: CPU<20% AND Mem<35%<br>-1 instance<br>Cooldown: 60-90s"]
     end
     
-    subgraph Containers["🐳 DOCKER CONTAINERS"]
-        C1["Instance 1"]
-        C2["Instance 2"]
-        C3["Instance 3...N"]
+    subgraph Services["🐳 DOCKER SERVICES"]
+        subgraph User["User Service"]
+            U1["Min: 2<br>Max: 10<br>Priority: 2"]
+        end
+        subgraph Trip["Trip Service"]
+            T1["Min: 2<br>Max: 15<br>Priority: 1"]
+        end
+        subgraph Driver["Driver Service<br>(I/O Bound)"]
+            D1["Min: 2<br>Max: 15<br>Priority: 1"]
+        end
     end
     
     subgraph LB["⚖️ LOAD BALANCER"]
-        Nginx["Nginx<br>Round-robin/Least-conn"]
+        Nginx["Nginx<br>Least-conn<br>Keepalive:<br>User:32 Trip:128 Driver:64<br>DNS TTL: 2s"]
     end
     
     Script --> Metrics
-    Metrics --> ScaleOut
-    Metrics --> ScaleIn
-    ScaleOut --> Containers
-    ScaleIn --> Containers
-    Containers --> Nginx
+    Metrics --> Check
+    Check --> ScaleOut
+    Check --> ScaleIn
+    ScaleOut --> Services
+    ScaleIn --> Services
+    Services --> Nginx
     
     classDef monitorBox fill:#fff3e0,stroke:#f57c00,stroke-width:2px
     classDef scaleBox fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
@@ -181,39 +189,88 @@ flowchart TB
     classDef lbBox fill:#fce4ec,stroke:#c2185b,stroke-width:2px
     
     class Script,Metrics monitorBox
-    class ScaleOut,ScaleIn scaleBox
-    class C1,C2,C3 containerBox
+    class Check,ScaleOut,ScaleIn scaleBox
+    class U1,T1,D1 containerBox
     class Nginx lbBox
 ```
 
 **Auto-Scaler Flow:**
 ```
-1. Python script polls Docker stats (CPU usage per container)
-2. Calculate average CPU across all instances
-   ├── CPU > 70% → Scale OUT (+2 instances)
-   └── CPU < 30% → Scale IN (-1 instance)
-3. Execute: docker compose up -d --scale service=N
-4. Wait cooldown period before next evaluation
-5. Repeat
+1. Python script polls Docker stats every 5s (CPU + Memory per container)
+2. Apply grace period (180s) - no scale-in during startup
+3. Calculate metrics per service with service-specific profiles:
+   
+   Scale OUT (OR condition - any threshold exceeded):
+   ├── User Service: CPU>55% OR Memory>65% → Scale OUT +2
+   ├── Trip Service: CPU>50% OR Memory>60% → Scale OUT +2 (Priority 1)
+   └── Driver Service: CPU>40% OR Memory>70% → Scale OUT +2 (I/O bound)
+   
+   Scale IN (AND condition - both thresholds below 50% of target):
+   ├── User Service: CPU<27.5% (50% of 55%) AND Memory<32.5% (50% of 65%) → Scale IN -1
+   ├── Trip Service: CPU<25% (50% of 50%) AND Memory<30% (50% of 60%) → Scale IN -1
+   └── Driver Service: CPU<20% (50% of 40%) AND Memory<35% (50% of 70%) → Scale IN -1
+
+4. Stability check: Require 3 consecutive low readings before scale-in
+5. Execute scaling:
+   ├── Scale OUT: +2 instances, cooldown 15-20s
+   └── Scale IN: -1 instance, cooldown 60-90s (after 3 consecutive low readings)
+6. Update Nginx upstream via dynamic DNS (TTL 2s)
+7. Repeat
 ```
 
 **Key Components:**
 | Component | Purpose | Config |
 |-----------|---------|--------|
-| Python Script | Monitor & trigger scaling | Poll interval: configurable |
+| Python Script | Monitor & trigger scaling | Poll: 5s, Grace: 180s |
+| Service Profiles | Per-service thresholds | CPU + Memory targets |
+| Stability Check | Prevent flapping | 3 consecutive readings |
 | Docker Compose | Container orchestration | --scale flag |
-| Nginx LB | Distribute traffic | Round-robin / least-conn |
-| Cooldown | Prevent flapping | Period between scale actions |
+| Nginx LB | Distribute traffic | Least-conn + keepalive |
+| Cooldown | Rate limiting | Scale-out: 15-20s, Scale-in: 60-90s |
 
 **Scaling Configuration:**
-| Parameter | Value | Reason |
-|-----------|-------|--------|
-| Min Instances | 2 | Always have warm capacity |
-| Max Instances | 10 (configurable) | Resource limit |
-| Scale Out Threshold | CPU > 70% | Before saturation |
-| Scale In Threshold | CPU < 30% | Conservative scale-in |
-| Scale Out Step | +2 instances | Aggressive for burst |
-| Scale In Step | -1 instance | Conservative for stability |
+| Service | Min | Max | **Scale-OUT Threshold** | **Scale-IN Threshold** | Priority | Cooldown |
+|---------|-----|-----|-------------------------|------------------------|----------|----------|
+| User | 2 | 10 | CPU>55% OR Mem>65% | CPU<27.5% AND Mem<32.5% | 2 | OUT:15s IN:60s |
+| Trip | 2 | 15 | CPU>50% OR Mem>60% | CPU<25% AND Mem<30% | 1 (Highest) | OUT:15s IN:90s |
+| Driver | 2 | 15 | CPU>40% OR Mem>70% | CPU<20% AND Mem<35% | 1 (I/O) | OUT:20s IN:90s |
+
+**Scale-IN Logic Detail:**
+```python
+# Scale-IN requires BOTH conditions + 3 consecutive readings
+
+def should_scale_in(cpu, mem, config):
+    # 1. Must be past grace period (180s)
+    if (now - start_time) < 180:
+        return False
+    
+    # 2. Both CPU AND Memory must be below 50% of target
+    below_threshold = (
+        cpu < config["target_cpu"] * 0.5 AND 
+        mem < config["target_memory"] * 0.5
+    )
+    
+    if not below_threshold:
+        stability_counter[service] = 0  # Reset
+        return False
+    
+    # 3. Must be low for 3 consecutive readings (15 seconds)
+    stability_counter[service] += 1
+    return stability_counter[service] >= 3
+```
+
+**Why Conservative Scale-IN?**
+- Aggressive scale-out (+2): React fast to traffic spike
+- Conservative scale-in (-1): Avoid thrashing (scale out → scale in → scale out)
+- 50% threshold: Large safety margin before removing capacity
+- 3 consecutive readings: Ensure sustained low load, not temporary dip
+
+**Nginx Load Balancer Config:**
+| Upstream | Algorithm | Keepalive | DNS TTL | Health Check |
+|----------|-----------|-----------|---------|--------------|
+| user_backend | least_conn | 32 connections | 2s | max_fails:3, timeout:10s |
+| trip_backend | least_conn | 128 connections | 2s | max_fails:3, timeout:10s |
+| driver_backend | least_conn | 64 connections | 2s | max_fails:3, timeout:10s |
 
 ---
 
@@ -288,6 +345,9 @@ flowchart TB
 | AWS account | Required | Not needed |
 | Debugging | Remote logs | **Local Docker logs** |
 | Offline dev | Không | **Có** |
+| Metrics | CloudWatch | **CPU + Memory** |
+| Service profiles | Per-target tracking | **Per-service thresholds** |
+| Stability | Built-in | **3x consecutive readings** |
 
 **What we gain:** Mọi developer chạy được trên laptop, $0 cost
 **What we lose:** Production-grade managed service features
@@ -380,10 +440,19 @@ def scale_service(current, target):
 ## Limitations & Future Work
 
 ### Current Limitations:
-1. **Not Production-Grade:** Python script lacks HA, monitoring
+1. **Not Production-Grade:** Python script lacks HA, monitoring dashboard
 2. **Single Host Only:** Cannot scale across multiple machines
-3. **No Predictive Scaling:** Reactive only, có delay
-4. **Limited Metrics:** CPU only, no memory/network triggers
+3. **No Predictive Scaling:** Reactive only, có delay nhỏ khi scale-out
+4. **Basic Orchestration:** Không có self-healing, rolling updates như k8s
+
+### Actual Implementation Exceeds ADR Scope:
+✅ **Memory metrics added** - Not just CPU, also Memory thresholds
+✅ **Service-specific profiles** - Different thresholds per service (User: 55%, Trip: 50%, Driver: 40%)
+✅ **Stability checks** - Requires 3 consecutive readings before scale-in
+✅ **Grace period** - 180s no scale-in during startup
+✅ **Sophisticated cooldowns** - Scale-out fast (15-20s), scale-in cautious (60-90s)
+✅ **Priority system** - Trip Service priority 1, scales first during contention
+✅ **Nginx optimizations** - Keepalive connections (32-128 per upstream), DNS TTL 2s
 
 ### Future Improvements:
 | Priority | Task | Effort | Value |
@@ -424,53 +493,175 @@ services:
 ### Python Auto-Scaler Script
 
 ```python
-# scripts/auto-scaler.py
+# scripts/auto-scaler.py - ACTUAL IMPLEMENTATION
 import docker
 import time
 import os
+from datetime import datetime
 
-MIN_REPLICAS = 2
-MAX_REPLICAS = 10
-SCALE_UP_THRESHOLD = 70  # CPU %
-SCALE_DOWN_THRESHOLD = 30
-COOLDOWN = 60  # seconds
+# Service-specific profiles
+CONFIG = {
+    "user-service": {
+        "min_replicas": 2,
+        "max_replicas": 10,
+        "target_cpu": 55.0,      # More aggressive than generic 70%
+        "target_memory": 65.0,   # Memory metric added
+        "priority": 2,
+        "scale_out_cooldown": 15,
+        "scale_in_cooldown": 60,
+    },
+    "trip-service": {
+        "min_replicas": 2,
+        "max_replicas": 15,
+        "target_cpu": 50.0,      # Highest priority
+        "target_memory": 60.0,
+        "priority": 1,           # Scale first
+        "scale_out_cooldown": 15,
+        "scale_in_cooldown": 90,
+    },
+    "driver-service": {
+        "min_replicas": 2,
+        "max_replicas": 15,
+        "target_cpu": 40.0,      # I/O bound, lower threshold
+        "target_memory": 70.0,
+        "priority": 1,
+        "scale_out_cooldown": 20,
+        "scale_in_cooldown": 90,
+    },
+}
 
-def get_cpu_usage(container_name):
-    stats = client.containers.get(container_name).stats(stream=False)
-    # Calculate CPU percentage from stats
-    return cpu_percent
+POLL_INTERVAL = 5  # seconds
+GRACE_PERIOD = 180  # No scale-in for 180s after startup
+STABILITY_COUNT = 3  # Require 3 consecutive low readings before scale-in
 
-def scale_service(service_name, replicas):
-    replicas = max(MIN_REPLICAS, min(replicas, MAX_REPLICAS))
-    os.system(f"docker compose up -d --scale {service_name}={replicas}")
-
-def main():
-    current = MIN_REPLICAS
-    while True:
-        cpu = get_average_cpu()
+class AutoScaler:
+    def __init__(self):
+        self.client = docker.from_env()
+        self.start_time = datetime.now()
+        self.stability_counters = {}  # Track consecutive low readings
+    
+    def get_metrics(self, service_name):
+        """Get CPU and Memory metrics for all containers of a service"""
+        containers = self.get_service_containers(service_name)
+        if not containers:
+            return None, None
         
-        if cpu > SCALE_UP_THRESHOLD:
-            current += 2  # Aggressive scale-out
-            scale_service("user-service", current)
-        elif cpu < SCALE_DOWN_THRESHOLD:
-            current -= 1  # Conservative scale-in
-            scale_service("user-service", current)
+        cpu_total = 0
+        mem_total = 0
+        for container in containers:
+            stats = container.stats(stream=False)
+            cpu_percent = self.calculate_cpu_percent(stats)
+            mem_percent = self.calculate_mem_percent(stats)
+            cpu_total += cpu_percent
+            mem_total += mem_percent
         
-        time.sleep(COOLDOWN)
+        return cpu_total / len(containers), mem_total / len(containers)
+    
+    def should_scale_out(self, cpu, mem, config):
+        """Check if should scale out - OR condition (CPU OR Memory)"""
+        return cpu > config["target_cpu"] or mem > config["target_memory"]
+    
+    def should_scale_in(self, cpu, mem, config):
+        """Check if should scale in - AND condition (both below threshold)"""
+        # Must be in grace period first
+        if (datetime.now() - self.start_time).seconds < GRACE_PERIOD:
+            return False
+        
+        below_threshold = (cpu < config["target_cpu"] * 0.5 and 
+                          mem < config["target_memory"] * 0.5)
+        
+        if not below_threshold:
+            self.stability_counters[service_name] = 0
+            return False
+        
+        # Require STABILITY_COUNT consecutive low readings
+        self.stability_counters[service_name] = \
+            self.stability_counters.get(service_name, 0) + 1
+        
+        return self.stability_counters[service_name] >= STABILITY_COUNT
+    
+    def scale_service(self, service_name, target_replicas, config):
+        """Scale service with bounds checking"""
+        target = max(config["min_replicas"], 
+                    min(target_replicas, config["max_replicas"]))
+        
+        os.system(f"docker compose up -d --scale {service_name}={target}")
+        log(f"[{service_name}] Scaled to {target} replicas")
+    
+    def run(self):
+        """Main auto-scaling loop"""
+        while True:
+            for service_name, config in sorted(CONFIG.items(), 
+                                              key=lambda x: x[1]["priority"]):
+                cpu, mem = self.get_metrics(service_name)
+                if cpu is None:
+                    continue
+                
+                current = len(self.get_service_containers(service_name))
+                
+                if self.should_scale_out(cpu, mem, config):
+                    target = current + 2  # Aggressive scale-out
+                    self.scale_service(service_name, target, config)
+                    time.sleep(config["scale_out_cooldown"])
+                
+                elif self.should_scale_in(cpu, mem, config):
+                    target = current - 1  # Conservative scale-in
+                    self.scale_service(service_name, target, config)
+                    time.sleep(config["scale_in_cooldown"])
+            
+            time.sleep(POLL_INTERVAL)
+
+if __name__ == "__main__":
+    AutoScaler().run()
 ```
 
 ### Nginx Load Balancer
 
 ```nginx
-# nginx-lb.conf
-upstream user_service {
-    least_conn;  # Load balance to least connections
-    server user-service:3001;
+# nginx-lb.conf - ACTUAL IMPLEMENTATION
+resolver 127.0.0.11 valid=2s;  # Docker DNS, 2s TTL for dynamic discovery
+
+upstream user_backend {
+    least_conn;  # Route to least connections (not round-robin)
+    keepalive 32;  # Connection pool
+    server user-service:3001 max_fails=3 fail_timeout=10s;
+}
+
+upstream trip_backend {
+    least_conn;
+    keepalive 128;  # Highest traffic service
+    server trip-service:3002 max_fails=3 fail_timeout=10s;
+}
+
+upstream driver_backend {
+    least_conn;
+    keepalive 64;  # I/O bound service
+    server driver-service:3003 max_fails=3 fail_timeout=10s;
 }
 
 server {
+    listen 80;
+    
+    # Connection pooling optimization
+    keepalive_requests 10000;
+    keepalive_timeout 300s;
+    
     location /api/users {
-        proxy_pass http://user_service;
+        proxy_pass http://user_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";  # Enable keepalive
+    }
+    
+    location /api/trips {
+        proxy_pass http://trip_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+    }
+    
+    location /api/drivers {
+        proxy_pass http://driver_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
     }
 }
 ```
