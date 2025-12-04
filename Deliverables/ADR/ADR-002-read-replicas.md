@@ -157,7 +157,8 @@ Hệ thống sử dụng **single PostgreSQL instance** cho tất cả operation
 ```mermaid
 flowchart TD
     subgraph App["🖥️ APPLICATION LAYER"]
-        NestJS["NestJS Services"]
+        US["👤 UserService<br>(Port 3001)"]
+        TS["🚗 TripService<br>(Port 3002)"]
         Router["Read/Write Router"]
     end
     
@@ -170,19 +171,24 @@ flowchart TD
         Rep2[(Replica 2<br>Port 5434)]
     end
     
-    NestJS --> Router
-    Router -->|"WRITE queries"| PDB
+    US --> Router
+    TS --> Router
+    Router -->|"WRITE queries<br>(INSERT, UPDATE, DELETE)"| PDB
     Router -->|"READ queries<br>(round-robin)"| Rep1
     Router -->|"READ queries<br>(round-robin)"| Rep2
     
     PDB -.->|"WAL Streaming<br>(Async)"| Rep1
     PDB -.->|"WAL Streaming<br>(Async)"| Rep2
     
-    classDef appBox fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef userBox fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef tripBox fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef routerBox fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     classDef primaryBox fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
     classDef replicaBox fill:#fff3e0,stroke:#f57c00,stroke-width:2px
     
-    class NestJS,Router appBox
+    class US userBox
+    class TS tripBox
+    class Router routerBox
     class PDB primaryBox
     class Rep1,Rep2 replicaBox
 ```
