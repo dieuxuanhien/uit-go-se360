@@ -256,7 +256,8 @@ flowchart TD
 │  Chi phí thấp             │  Chi phí cao hơn               │
 │  Single point of failure  │  High availability             │
 │  Downtime = total outage  │  Partial service during fail   │
-│  Manual recovery          │  Auto-failover possible        │
+│  Recovery = restore backup│  Recovery = promote replica    │
+│  (mất data từ last backup)│  (gần như không mất data)      │
 └───────────────────────────┴─────────────────────────────────┘
 ```
 
@@ -264,14 +265,17 @@ flowchart TD
 |--------|-----------------|---------------|---------|
 | **Cost** | Thấp | Cao hơn đáng kể | Single cheaper |
 | **Availability** | Thấp (SPOF) | **Cao hơn nhiều** | ✅ Replicas wins |
-| **Recovery time** | Chậm (manual) | Nhanh (auto-failover) | ✅ Replicas wins |
+| **Recovery time** | Chậm (restore backup) | Nhanh hơn (promote replica) | ✅ Replicas wins |
+| **Data loss** | Mất data từ last backup | Gần như không mất | ✅ Replicas wins |
 
-**What we gain:** High availability, giảm downtime đáng kể, auto-failover capability
+**What we gain:** High availability, replicas sẵn sàng để promote thành primary
 **What we lose:** Chi phí tăng
 **Why acceptable:** 
 - Downtime ảnh hưởng user experience và business
 - Course project cũng cần demonstrate HA concepts
 - Chi phí Docker Compose = $0 cho local development
+
+> **Lưu ý:** Failover hiện tại là **manual** (Docker). Auto-failover có khi migrate lên RDS Multi-AZ.
 
 ---
 

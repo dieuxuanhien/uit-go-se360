@@ -223,13 +223,11 @@ graph TB
 | Cluster Mode | Data sharding across masters | Enabled |
 
 **TTL Strategy:**
-| Data Type | TTL | Reason |
-|-----------|-----|--------|
-| Driver Profile | 1 hour | Rarely changes, high read frequency |
-| User Profile | 30 min | Occasionally changes |
-| Pricing Rules | 24 hours | Very stable, changes rarely |
-| Active Trip | 1 min | Changes frequently, need freshness |
-| Driver Location | Short | Real-time data, quick expiry |
+| Data Type | TTL | Reason | Status |
+|-----------|-----|--------|--------|
+| User Profile | 1 hour | Rarely changes, high read frequency | ✅ Implemented |
+| Driver Location | Real-time | Overwritten on each GPS update | ✅ Implemented (Redis Geo) |
+| Driver Profile | 1 hour | Rarely changes | ✅ Implemented |
 
 ---
 
