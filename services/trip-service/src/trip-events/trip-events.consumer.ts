@@ -108,29 +108,42 @@ export class TripEventsConsumer implements OnModuleInit {
       const snsMessage = JSON.parse(message.Body);
       const event = JSON.parse(snsMessage.Message);
 
-      this.logger.log('📨 Processing TripMatched event', {
+      this.logger.log('📨 Processing event', {
         messageId,
         tripId: event.tripId,
         eventType: event.eventType,
       });
 
-      // Validate event type
-      if (event.eventType !== 'TripMatched') {
-        this.logger.warn('Unexpected event type', {
-          messageId,
-          eventType: event.eventType,
-        });
-        return;
-      }
+      // Route based on event type
+      switch (event.eventType) {
+        case 'TripMatched':
+          await this.tripEventsService.handleTripMatched({
+            tripId: event.tripId,
+            driverId: event.driverId,
+            passengerId: event.passengerId,
+            driverDistance: event.driverDistance,
+            matchedAt: event.matchedAt,
+          });
+          break;
 
-      // Update trip status
-      await this.tripEventsService.handleTripMatched({
-        tripId: event.tripId,
-        driverId: event.driverId,
-        passengerId: event.passengerId,
-        driverDistance: event.driverDistance,
-        matchedAt: event.matchedAt,
-      });
+        case 'NoDriversAvailable':
+          await this.tripEventsService.handleNoDriversAvailable({
+            tripId: event.tripId,
+            passengerId: event.passengerId,
+            searchAttempts: event.searchAttempts,
+            searchDurationMs: event.searchDurationMs,
+            maxRadiusKm: event.maxRadiusKm,
+            failedAt: event.failedAt,
+          });
+          break;
+
+        default:
+          this.logger.warn('Unknown event type, skipping', {
+            messageId,
+            eventType: event.eventType,
+          });
+          return;
+      }
 
       // Mark as processed
       this.processedMessageIds.add(messageId);

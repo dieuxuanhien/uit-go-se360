@@ -86,12 +86,12 @@ awslocal sns subscribe \
   --attributes "{\"FilterPolicy\":\"{\\\"eventType\\\":[\\\"TripRequested\\\"]}\"}" \
   --region us-east-1 || echo "Subscription driver-match-queue already exists"
 
-# Subscribe trip-update-queue (filter: TripMatched events only)
+# Subscribe trip-update-queue (filter: TripMatched and NoDriversAvailable events)
 awslocal sns subscribe \
   --topic-arn "$TRIP_EVENTS_TOPIC_ARN" \
   --protocol sqs \
   --notification-endpoint "$TRIP_UPDATE_QUEUE_ARN" \
-  --attributes "{\"FilterPolicy\":\"{\\\"eventType\\\":[\\\"TripMatched\\\"]}\"}" \
+  --attributes "{\"FilterPolicy\":\"{\\\"eventType\\\":[\\\"TripMatched\\\",\\\"NoDriversAvailable\\\"]}\"}" \
   --region us-east-1 || echo "Subscription trip-update-queue already exists"
 
 echo ""
@@ -99,11 +99,11 @@ echo "✅ Story 2.1 resources initialization complete!"
 echo ""
 echo "📋 Created resources:"
 echo "  SNS Topic:"
-echo "    - trip-events (for TripRequested, TripMatched events)"
+echo "    - trip-events (for TripRequested, TripMatched, NoDriversAvailable events)"
 echo ""
 echo "  SQS Queues:"
 echo "    - driver-match-queue (receives TripRequested events)"
-echo "    - trip-update-queue (receives TripMatched events)"
+echo "    - trip-update-queue (receives TripMatched, NoDriversAvailable events)"
 echo ""
 echo "  Dead Letter Queues:"
 echo "    - driver-match-dlq (maxReceiveCount: 3)"

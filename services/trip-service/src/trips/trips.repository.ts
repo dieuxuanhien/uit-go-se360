@@ -136,4 +136,26 @@ export class TripsRepository {
       throw new InternalServerErrorException('Failed to update trip status');
     }
   }
+
+  /**
+   * Cancel a trip with reason
+   */
+  async cancelTrip(
+    tripId: string,
+    cancellationReason: string,
+  ): Promise<Trip> {
+    try {
+      return await this.prisma.trip.update({
+        where: { id: tripId },
+        data: {
+          status: TripStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancellationReason,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Failed to cancel trip', error);
+      throw new InternalServerErrorException('Failed to cancel trip');
+    }
+  }
 }

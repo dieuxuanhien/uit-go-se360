@@ -71,47 +71,53 @@ export class TripsService {
       });
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // Story 2.1: Publish TripRequested event to SNS (async, non-blocking)
-      // Fire-and-forget: Don't await to avoid blocking HTTP response
+      // Story 2.1: Publish TripRequested event to SNS
+      // MUST await to ensure driver matching is triggered
+      // If publish fails, we cancel the trip and inform the user
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      publishToTopic(
-        this.tripEventsTopicArn,
-        {
-          eventType: 'TripRequested',
+      try {
+        await publishToTopic(
+          this.tripEventsTopicArn,
+          {
+            eventType: 'TripRequested',
+            tripId: trip.id,
+            passengerId: trip.passengerId,
+            pickupLatitude: dto.pickupLatitude,
+            pickupLongitude: dto.pickupLongitude,
+            pickupAddress: dto.pickupAddress,
+            destinationLatitude: dto.destinationLatitude,
+            destinationLongitude: dto.destinationLongitude,
+            destinationAddress: dto.destinationAddress,
+            estimatedFare: trip.estimatedFare,
+            estimatedDistance: trip.estimatedDistance,
+            requestedAt: trip.requestedAt.toISOString(),
+          },
+          'Trip Requested - Find Drivers',
+        );
+
+        const publishDuration = Date.now() - beforePublish;
+        this.logger.log('TripRequested event published successfully', {
           tripId: trip.id,
-          passengerId: trip.passengerId,
-          pickupLatitude: dto.pickupLatitude,
-          pickupLongitude: dto.pickupLongitude,
-          pickupAddress: dto.pickupAddress,
-          destinationLatitude: dto.destinationLatitude,
-          destinationLongitude: dto.destinationLongitude,
-          destinationAddress: dto.destinationAddress,
-          estimatedFare: trip.estimatedFare,
-          estimatedDistance: trip.estimatedDistance,
-          requestedAt: trip.requestedAt.toISOString(),
-        },
-        'Trip Requested - Find Drivers',
-      )
-        .then(() => {
-          const publishDuration = Date.now() - beforePublish;
-          this.logger.log('TripRequested event published successfully', {
-            tripId: trip.id,
-            topicArn: this.tripEventsTopicArn,
-            publishDurationMs: publishDuration,
-          });
-        })
-        .catch((error) => {
-          this.logger.error('Failed to publish TripRequested event', {
-            tripId: trip.id,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          });
+          topicArn: this.tripEventsTopicArn,
+          publishDurationMs: publishDuration,
+        });
+      } catch (publishError) {
+        // SNS publish failed - cancel the trip and inform user
+        this.logger.error('Failed to publish TripRequested event, cancelling trip', {
+          tripId: trip.id,
+          error: publishError instanceof Error ? publishError.message : 'Unknown error',
         });
 
-      const ackTime = Date.now() - beforePublish;
-      this.logger.log('⚡ Trip creation ACK (before SNS publish completes)', {
-        tripId: trip.id,
-        ackTimeMs: ackTime,
-      });
+        // Update trip status to reflect the failure
+        await this.tripsRepository.cancelTrip(
+          trip.id,
+          'Failed to initiate driver search. Please try again.',
+        );
+
+        throw new InternalServerErrorException(
+          'Unable to process your trip request at this time. Please try again.',
+        );
+      }
 
       return this.mapToDto(trip);
     } catch (error) {
