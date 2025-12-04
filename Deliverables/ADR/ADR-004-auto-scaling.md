@@ -177,7 +177,6 @@ flowchart TB
     
     Script --> Metrics
     Metrics --> Check
-    Check --> ScaleOut
     Check --> ScaleIn
     ScaleOut --> Services
     ScaleIn --> Services
