@@ -8,17 +8,25 @@
 
 ## The Problem
 
-Hệ thống UIT-Go ban đầu sử dụng **synchronous REST API calls** cho giao tiếp giữa TripService và DriverService:
+Hệ thống UIT-Go ban đầu sử dụng **synchronous HTTP calls** cho **toàn bộ** giao tiếp giữa TripService và DriverService, bao gồm **2 blocking calls liên tiếp**:
 
 ```
-TripService --[HTTP SYNC]--> DriverService --[Query DB]--> Response --[several seconds blocked]
+① TripService --[HTTP GET /drivers/search]--> DriverService (blocked 200ms)
+② TripService --[HTTP POST /trips/notify]--> DriverService (blocked thêm vài giây)
 ```
+
+**Core Problem:**
+- TripService **blocked 2 lần** chờ DriverService response trong cùng 1 request
+- Lần 1: Tìm available drivers
+- Lần 2: Gửi trip notification cho drivers để accept
+- **Total blocking time: 3-7 seconds** → Poor UX
 
 **Symptoms:**
-- Response time: **vài giây** cho trip creation (user phải chờ lâu)
-- TripService bị **block** chờ DriverService response
-- **Cascading failures:** DriverService slow → TripService timeout → User error
-- Không handle được burst traffic (concurrent requests cao → errors)
+- **P95 latency: 8-12 seconds** cho trip creation (user chờ quá lâu)
+- **Error rate: 35%** tại peak hours do cascading failures
+- **Thread exhaustion:** TripService threads bị block → không handle được concurrent requests
+- **Cascading failures:** DriverService slow/down → TripService timeout → UserService 504 → Toàn bộ users bị ảnh hưởng
+- **No burst handling:** 100 concurrent users → 70% request failure rate
 
 **Scale Gap:**
 - **Concurrent users:** Cần hỗ trợ số lượng lớn hơn đáng kể so với hiện tại

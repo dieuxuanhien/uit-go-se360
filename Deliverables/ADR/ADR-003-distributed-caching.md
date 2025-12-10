@@ -8,20 +8,19 @@
 
 ## The Problem
 
-Hệ thống hiện tại **không có caching layer**. Mọi request đều hit database trực tiếp, kể cả dữ liệu ít thay đổi như driver profile và user profile.
+Hệ thống hiện tại **không có caching layer**. Mọi request đều hit database trực tiếp, kể cả dữ liệu ít thay đổi (user profiles, driver profiles). Workload pattern: **80% cacheable reads, 20% writes**.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Without Caching Layer                                      │
-├─────────────────────────────────────────────────────────────┤
-│  [Request]───┐                                              │
-│  [Request]───┼──→ [PostgreSQL] ← All queries hit database  │
-│  [Request]───┘        ↑                                     │
-│                       │                                     │
-│           80% of queries are cacheable reads                │
-│           (profiles, pricing, static data)                  │
-└─────────────────────────────────────────────────────────────┘
+[All Requests] ──→ [PostgreSQL Primary + Replicas]
+                         ↓
+                  Disk I/O for every query
+            (Even for same data requested 1000x)
 ```
+
+**Core Problem:**
+- **No caching layer** - 100% queries hit database, even for static data
+- **Repeated disk I/O** - same user profile queried 1000 times = 1000 database reads
+- **Memory underutilized** - fast in-memory cache layer missing
 
 **Symptoms:**
 - **Profile Queries:** Latency cao do mỗi request đều hit database
