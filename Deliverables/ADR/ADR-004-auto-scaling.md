@@ -8,28 +8,25 @@
 
 ## The Problem
 
-Hệ thống sử dụng **fixed containers** không có auto-scaling, dẫn đến lãng phí tài nguyên hoặc không đáp ứng được tải cao.
+Hệ thống sử dụng **fixed container count** không có auto-scaling. Traffic pattern: **Biến động theo giờ** (thấp đêm, cao peak), nhưng containers luôn cố định.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Fixed Container Deployment (No Auto-Scaling)               │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  NIGHT HOURS:     ████░░░░░░  Traffic: Low                 │
-│  Containers:      ████████    Fixed: High                   │
-│  Result:          WASTE - paying for unused capacity        │
-│                                                             │
-│  PEAK HOURS:      ██████████████  Traffic: Very High       │
-│  Containers:      ████████        Fixed: Same               │
-│  Result:          OVERLOAD - requests fail                  │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+Night (Low Traffic):        Peak (High Traffic):
+[2 containers running]      [2 containers running]
+Traffic: 10 req/min         Traffic: 500 req/min
+CPU: 10% → WASTE           CPU: 95% → OVERLOAD
 ```
+
+**Core Problem:**
+- **Fixed capacity** không thay đổi theo workload → mismatch giữa supply và demand
+- **No elasticity** - không scale out khi traffic tăng, không scale in khi traffic giảm
+- **Manual intervention required** - DevOps phải thủ công adjust container count
 
 **Symptoms:**
-- **Over-Provisioning (Night):** Traffic thấp nhưng vẫn provisioned nhiều containers → lãng phí
-- **Under-Provisioning (Peak):** Traffic cao vượt quá capacity → requests fail
-- **Manual Scaling Pain:** DevOps phải can thiệp thủ công, mất thời gian, không react kịp
+- **Resource waste khi idle:** Night hours traffic thấp (10 req/min) nhưng vẫn chạy nhiều containers → CPU <15%, lãng phí tài nguyên
+- **Request failures khi peak:** Traffic spike (500 req/min) vượt capacity → CPU >90%, requests timeout/failed
+- **Slow manual response:** DevOps phải thủ công scale containers, mất thời gian, không react kịp traffic spikes
+- **No cost optimization:** Trả tiền cho unused capacity suốt đêm, mất tiền khi peak do request failures
 
 **Scale Gap:**
 - **Capacity:** Từ fixed capacity lên elastic capacity
@@ -156,7 +153,7 @@ flowchart TB
     subgraph Scaling["⚡ SCALING LOGIC"]
         Check["Stability Check<br>3 consecutive readings"]
         ScaleOut["Scale OUT<br>User: CPU>55% / Mem>65%<br>Trip: CPU>50% / Mem>60%<br>Driver: CPU>40% / Mem>70%<br>+2 instances<br>Cooldown: 15-20s"]
-        ScaleIn["Scale IN<br>User: CPU<27.5% AND Mem<32.5%<br>Trip: CPU<25% AND Mem<30%<br>Driver: CPU<20% AND Mem<35%<br>-1 instance<br>Cooldown: 60-90s"]
+        ScaleIn["Scale IN<br>User: CPU<22% AND Mem<26%<br>Trip: CPU<20% AND Mem<24%<br>Driver: CPU<16% AND Mem<28%<br>-1 instance<br>Cooldown: 60-90s"]
     end
     
     subgraph Services["🐳 DOCKER SERVICES"]
@@ -176,11 +173,12 @@ flowchart TB
     end
     
     Script --> Metrics
+    Metrics --> ScaleOut
     Metrics --> Check
     Check --> ScaleIn
-    ScaleOut --> Services
+d    ScaleOut --> Services
     ScaleIn --> Services
-    Services --> Nginx
+    Nginx --> Services
     
     classDef monitorBox fill:#fff3e0,stroke:#f57c00,stroke-width:2px
     classDef scaleBox fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
@@ -204,15 +202,14 @@ flowchart TB
    ├── Trip Service: CPU>50% OR Memory>60% → Scale OUT +2 (Priority 1)
    └── Driver Service: CPU>40% OR Memory>70% → Scale OUT +2 (I/O bound)
    
-   Scale IN (AND condition - both thresholds below 50% of target):
-   ├── User Service: CPU<27.5% (50% of 55%) AND Memory<32.5% (50% of 65%) → Scale IN -1
-   ├── Trip Service: CPU<25% (50% of 50%) AND Memory<30% (50% of 60%) → Scale IN -1
-   └── Driver Service: CPU<20% (50% of 40%) AND Memory<35% (50% of 70%) → Scale IN -1
+   Scale IN (AND condition - both thresholds below 40% of target):
+   ├── User Service: CPU<22% (40% of 55%) AND Memory<26% (40% of 65%) → Scale IN -1
+   ├── Trip Service: CPU<20% (40% of 50%) AND Memory<24% (40% of 60%) → Scale IN -1
+   └── Driver Service: CPU<16% (40% of 40%) AND Memory<28% (40% of 70%) → Scale IN -1
 
-4. Stability check: Require 3 consecutive low readings before scale-in
-5. Execute scaling:
-   ├── Scale OUT: +2 instances, cooldown 15-20s
-   └── Scale IN: -1 instance, cooldown 60-90s (after 3 consecutive low readings)
+4. Execute scaling:
+   ├── Scale OUT: +2 instances immediately when threshold exceeded, cooldown 15-20s
+   └── Scale IN: -1 instance only after 3 consecutive low readings (stability check), cooldown 60-90s
 6. Update Nginx upstream via dynamic DNS (TTL 2s)
 7. Repeat
 ```
@@ -222,7 +219,7 @@ flowchart TB
 |-----------|---------|--------|
 | Python Script | Monitor & trigger scaling | Poll: 5s, Grace: 180s |
 | Service Profiles | Per-service thresholds | CPU + Memory targets |
-| Stability Check | Prevent flapping | 3 consecutive readings |
+| Stability Check | Prevent flapping (Scale IN only) | 3 consecutive low readings |
 | Docker Compose | Container orchestration | --scale flag |
 | Nginx LB | Distribute traffic | Least-conn + keepalive |
 | Cooldown | Rate limiting | Scale-out: 15-20s, Scale-in: 60-90s |
@@ -230,9 +227,20 @@ flowchart TB
 **Scaling Configuration:**
 | Service | Min | Max | **Scale-OUT Threshold** | **Scale-IN Threshold** | Priority | Cooldown |
 |---------|-----|-----|-------------------------|------------------------|----------|----------|
-| User | 2 | 10 | CPU>55% OR Mem>65% | CPU<27.5% AND Mem<32.5% | 2 | OUT:15s IN:60s |
-| Trip | 2 | 15 | CPU>50% OR Mem>60% | CPU<25% AND Mem<30% | 1 (Highest) | OUT:15s IN:90s |
-| Driver | 2 | 15 | CPU>40% OR Mem>70% | CPU<20% AND Mem<35% | 1 (I/O) | OUT:20s IN:90s |
+| User | 2 | 10 | CPU>55% OR Mem>65% | CPU<22% AND Mem<26% | 2 | OUT:20s IN:60s |
+| Trip | 2 | 15 | CPU>50% OR Mem>60% | CPU<20% AND Mem<24% | 1 (Highest) | OUT:15s IN:90s |
+| Driver | 2 | 15 | CPU>40% OR Mem>70% | CPU<16% AND Mem<28% | 1 (I/O) | OUT:15s IN:60s |
+
+**Scale-OUT Logic Detail:**
+```python
+# Scale-OUT triggers IMMEDIATELY when threshold exceeded
+
+def should_scale_out(cpu, mem, config):
+    # No stability check - react immediately to high load
+    if cpu > config["target_cpu"] or mem > config["target_memory"]:
+        return True  # Scale out NOW!
+    return False
+```
 
 **Scale-IN Logic Detail:**
 ```python
@@ -243,10 +251,10 @@ def should_scale_in(cpu, mem, config):
     if (now - start_time) < 180:
         return False
     
-    # 2. Both CPU AND Memory must be below 50% of target
+    # 2. Both CPU AND Memory must be below 40% of target
     below_threshold = (
-        cpu < config["target_cpu"] * 0.5 AND 
-        mem < config["target_memory"] * 0.5
+        cpu < config["target_cpu"] * 0.4 AND 
+        mem < config["target_memory"] * 0.4
     )
     
     if not below_threshold:
@@ -259,10 +267,10 @@ def should_scale_in(cpu, mem, config):
 ```
 
 **Why Conservative Scale-IN?**
-- Aggressive scale-out (+2): React fast to traffic spike
-- Conservative scale-in (-1): Avoid thrashing (scale out → scale in → scale out)
-- 50% threshold: Large safety margin before removing capacity
-- 3 consecutive readings: Ensure sustained low load, not temporary dip
+- **Aggressive scale-out (+2):** React fast to traffic spike, NO stability check needed
+- **Conservative scale-in (-1):** Avoid thrashing (scale out → scale in → scale out)
+- **40% threshold:** Large safety margin before removing capacity
+- **3 consecutive readings (Scale IN only):** Ensure sustained low load, not temporary dip
 
 **Nginx Load Balancer Config:**
 | Upstream | Algorithm | Keepalive | DNS TTL | Health Check |
@@ -566,8 +574,8 @@ class AutoScaler:
         if (datetime.now() - self.start_time).seconds < GRACE_PERIOD:
             return False
         
-        below_threshold = (cpu < config["target_cpu"] * 0.5 and 
-                          mem < config["target_memory"] * 0.5)
+        below_threshold = (cpu < config["target_cpu"] * 0.4 and 
+                          mem < config["target_memory"] * 0.4)
         
         if not below_threshold:
             self.stability_counters[service_name] = 0

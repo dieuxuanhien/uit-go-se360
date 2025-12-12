@@ -8,25 +8,26 @@
 
 ## The Problem
 
-Hệ thống sử dụng **single PostgreSQL instance** cho tất cả operations. Workload pattern: **đa số là reads, ít writes**.
+Hệ thống sử dụng **single PostgreSQL instance** cho tất cả operations. Workload pattern: **80% reads, 20% writes** - read-heavy workload nhưng tất cả queries đều hit cùng 1 instance.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Single PostgreSQL Instance                                 │
-├─────────────────────────────────────────────────────────────┤
-│  [READ]───┐                                                 │
-│  [READ]───┼──→ [DB] ←──[WRITE]                              │
-│  [READ]───┘      ↑                                          │
-│                  │                                          │
-│           CPU Contention                                    │
-│           All queries compete for same resources            │
-└─────────────────────────────────────────────────────────────┘
+[All READ queries] ──┐
+[All READ queries] ──┼──→ [Single PostgreSQL Primary] ←── [All WRITE queries]
+[All READ queries] ──┘           ↓
+                            CPU Contention
+                     (Reads và Writes compete resources)
 ```
+
+**Core Problem:**
+- **Single database instance** xử lý cả reads và writes → CPU bottleneck
+- **No read scaling** - không thể phân tán read load
+- **Single Point of Failure** - primary down → toàn bộ hệ thống down
 
 **Symptoms:**
-- **CPU:** Utilization cao trong peak hours → gần giới hạn
-- **Query latency:** Tăng đáng kể khi có nhiều concurrent queries → degraded UX
-- Database là **single point of failure** → downtime ảnh hưởng toàn hệ thống
+- **Database CPU saturation:** CPU usage 85-95% tại peak hours → gần giới hạn
+- **Query latency tăng cao:** Slow queries khi có nhiều concurrent reads → degraded UX
+- **Connection exhaustion:** Connection pool đầy → requests queued/failed
+- **No failover capability:** Primary down → toàn bộ application down, mất data từ last backup
 
 **Scale Gap:**
 - **Read capacity:** Cần tăng khả năng xử lý read queries lên nhiều lần
