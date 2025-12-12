@@ -45,13 +45,18 @@ flowchart TB
         end
     end
 
-    subgraph Cache["⚡ Redis Cluster (6 nodes)"]
-        RC1["redis-node-1<br/>PRIMARY"]
-        RC2["redis-node-2<br/>PRIMARY"]
-        RC3["redis-node-3<br/>PRIMARY"]
-        RC4["redis-node-4<br/>REPLICA"]
-        RC5["redis-node-5<br/>REPLICA"]
-        RC6["redis-node-6<br/>REPLICA"]
+    subgraph RedisInfra["⚡ Redis Infrastructure"]
+        subgraph CacheCluster["Redis Cluster (6 nodes)<br/>user-service caching"]
+            RC1["redis-node-1<br/>PRIMARY"]
+            RC2["redis-node-2<br/>PRIMARY"]
+            RC3["redis-node-3<br/>PRIMARY"]
+            RC4["redis-node-4<br/>REPLICA"]
+            RC5["redis-node-5<br/>REPLICA"]
+            RC6["redis-node-6<br/>REPLICA"]
+        end
+        subgraph StandaloneRedis["Redis Standalone :6379<br/>driver-service geo + status"]
+            RG["redis<br/>GEOADD/GEORADIUS<br/>driver:geo index"]
+        end
     end
 
     subgraph AutoScale["🤖 Auto-Scaler"]
@@ -82,13 +87,14 @@ flowchart TB
     TPrimary -.->|streaming| TReplica1
     TPrimary -.->|streaming| TReplica2
 
-    %% Cache connections
-    US --> RC1
-    US --> RC2
-    US --> RC3
-    DS --> RC1
-    DS --> RC2
-    DS --> RC3
+    %% Cache connections (user-service → Redis Cluster)
+    US -->|cache-aside| RC1
+    US -->|cache-aside| RC2
+    US -->|cache-aside| RC3
+
+    %% Driver-service → Standalone Redis (Geo)
+    DS -->|GEOADD/GEORADIUS| RG
+    DS -->|driver:status| RG
 
     %% Redis cluster replication
     RC1 -.-> RC4
@@ -116,6 +122,7 @@ flowchart TB
     classDef primary fill:#4CAF50,stroke:#2E7D32,color:white
     classDef replica fill:#81C784,stroke:#4CAF50,color:black
     classDef cache fill:#FF9800,stroke:#F57C00,color:white
+    classDef geo fill:#E91E63,stroke:#AD1457,color:white
     classDef messaging fill:#2196F3,stroke:#1565C0,color:white
     classDef service fill:#9C27B0,stroke:#6A1B9A,color:white
     classDef dlq fill:#F44336,stroke:#C62828,color:white
@@ -123,6 +130,7 @@ flowchart TB
     class UPrimary,TPrimary primary
     class UReplica1,UReplica2,TReplica1,TReplica2 replica
     class RC1,RC2,RC3,RC4,RC5,RC6 cache
+    class RG geo
     class SNS,SQS1,SQS2 messaging
     class US,TS,DS service
     class DLQ1,DLQ2 dlq
@@ -239,14 +247,16 @@ getReadClient(): PrismaClient {
 
 ---
 
-## 4. Story 2.3: Distributed Caching (Redis Cluster)
+## 4. Story 2.3: Distributed Caching & Redis Geo
+
+### 4.1 Redis Cluster for user-service Caching
 
 ```mermaid
 flowchart TB
     subgraph UserService["user-service"]
         US["UsersController"]
         UR["UsersRepository"]
-        CS["CacheService"]
+        CS["CacheService<br/>(ioredis Cluster)"]
     end
 
     subgraph RedisCluster["Redis Cluster (6 nodes)"]
@@ -282,15 +292,67 @@ flowchart TB
     class R1,R2,R3,R4,R5,R6 cache
 ```
 
+### 4.2 Redis Standalone for driver-service (Geo + Status)
+
+```mermaid
+flowchart TB
+    subgraph DriverService["driver-service"]
+        DC["DriversController"]
+        DSvc["DriversService"]
+        RS["RedisService<br/>(ioredis standalone)"]
+    end
+
+    subgraph RedisStandalone["Redis Standalone :6379"]
+        subgraph GeoData["Geospatial Index"]
+            GEO["driver:geo<br/>GEOADD/GEORADIUS"]
+        end
+        subgraph StatusData["Driver State"]
+            STATUS["driver:status:{id}<br/>TTL: 3600s"]
+            LOC["driver:location:{id}<br/>TTL: 300s"]
+            ONLINE["driver:online<br/>(SET)"]
+            AVAIL["driver:available<br/>(SET)"]
+        end
+    end
+
+    DC --> DSvc
+    DSvc --> RS
+    RS -->|"GEOADD(lng, lat, driverId)"| GEO
+    RS -->|"GEORADIUS(lng, lat, radius)"| GEO
+    RS -->|"SET + EX"| STATUS
+    RS -->|"SET + EX"| LOC
+    RS -->|"SADD/SREM"| ONLINE
+    RS -->|"SADD/SREM"| AVAIL
+
+    classDef geo fill:#E91E63,stroke:#AD1457,color:white
+    classDef status fill:#00BCD4,stroke:#00838F,color:white
+    class GEO geo
+    class STATUS,LOC,ONLINE,AVAIL status
+```
+
+### Redis Geo Commands Used
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `GEOADD driver:geo lng lat driverId` | Store driver location | `GEOADD driver:geo 106.660172 10.762622 driver-123` |
+| `GEORADIUS driver:geo lng lat radius km WITHDIST ASC COUNT limit` | Find nearby drivers | `GEORADIUS driver:geo 106.66 10.76 5 km WITHDIST ASC COUNT 10` |
+| `ZREM driver:geo driverId` | Remove driver from geo index (offline) | `ZREM driver:geo driver-123` |
+
 ### Cache TTL Configuration
 
-| Data Type | Cache Key Pattern | TTL | Source |
-|-----------|-------------------|-----|--------|
-| User Profile | `user:{userId}` | 3600s (1 hour) | `CACHE_TTL_USER` env var |
-| Driver Profile | `driver:user:{userId}` | 1800s (30 min) | `CACHE_TTL_DRIVER_PROFILE` env var |
-| Driver Status | `driver:status:{driverId}` | 3600s (1 hour) | Hardcoded in `DriversService` |
-| Driver Location | `driver:location:{driverId}` | 300s (5 min) | Hardcoded `LOCATION_TTL` |
-| Driver Geo Index | `driver:geo` | No TTL | Geospatial index |
+| Data Type | Cache Key Pattern | TTL | Redis Instance | Service |
+|-----------|-------------------|-----|----------------|---------|
+| User Profile | `user:{userId}` | 3600s (1 hour) | Redis Cluster | user-service |
+| Driver Profile | `driver:user:{userId}` | 1800s (30 min) | Redis Cluster | user-service |
+| Driver Status | `driver:status:{driverId}` | 3600s (1 hour) | Redis Standalone | driver-service |
+| Driver Location | `driver:location:{driverId}` | 300s (5 min) | Redis Standalone | driver-service |
+| Driver Geo Index | `driver:geo` | No TTL (sorted set) | Redis Standalone | driver-service |
+| Online Drivers | `driver:online` | No TTL (set) | Redis Standalone | driver-service |
+| Available Drivers | `driver:available` | No TTL (set) | Redis Standalone | driver-service |
+
+> **Note:** driver-service uses **standalone Redis** (not cluster) because:
+> 1. Geospatial commands (`GEORADIUS`) require all data on same node
+> 2. Simpler setup for location-heavy workload
+> 3. Cluster mode is available but commented out in `docker-compose.yml`
 
 ### Cache-Aside Pattern Flow
 
@@ -464,25 +526,26 @@ flowchart LR
 
 ### Port Mapping
 
-| Service | Internal Port | External Port |
-|---------|---------------|---------------|
-| nginx-lb | 80 | 3000 |
-| user-service | 3001 | 3001 |
-| trip-service | 3002 | 3002 |
-| driver-service | 3003 | 3003 |
-| postgres-user | 5432 | 5432 |
-| postgres-trip | 5432 | 5443 |
-| postgres-user-replica-1 | 5432 | 5444 |
-| postgres-user-replica-2 | 5432 | 5445 |
-| postgres-trip-replica-1 | 5432 | 5446 |
-| postgres-trip-replica-2 | 5432 | 5447 |
-| redis-node-1 | 6379 | 7000 |
-| redis-node-2 | 6379 | 7001 |
-| redis-node-3 | 6379 | 7002 |
-| redis-node-4 | 6379 | 7003 |
-| redis-node-5 | 6379 | 7004 |
-| redis-node-6 | 6379 | 7005 |
-| LocalStack | 4566 | 4566 |
+| Service | Internal Port | External Port | Used By |
+|---------|---------------|---------------|---------|
+| nginx-lb | 80 | 3000 | All clients |
+| user-service | 3001 | 3001 | API |
+| trip-service | 3002 | 3002 | API |
+| driver-service | 3003 | 3003 | API |
+| postgres-user | 5432 | 5432 | user-service |
+| postgres-trip | 5432 | 5443 | trip-service |
+| postgres-user-replica-1 | 5432 | 5444 | user-service (reads) |
+| postgres-user-replica-2 | 5432 | 5445 | user-service (reads) |
+| postgres-trip-replica-1 | 5432 | 5446 | trip-service (reads) |
+| postgres-trip-replica-2 | 5432 | 5447 | trip-service (reads) |
+| **redis (standalone)** | 6379 | 6379 | **driver-service (geo)** |
+| redis-node-1 (cluster) | 6379 | 7000 | user-service (cache) |
+| redis-node-2 (cluster) | 6379 | 7001 | user-service (cache) |
+| redis-node-3 (cluster) | 6379 | 7002 | user-service (cache) |
+| redis-node-4 (cluster) | 6379 | 7003 | user-service (cache) |
+| redis-node-5 (cluster) | 6379 | 7004 | user-service (cache) |
+| redis-node-6 (cluster) | 6379 | 7005 | user-service (cache) |
+| LocalStack | 4566 | 4566 | SNS/SQS |
 
 ---
 
