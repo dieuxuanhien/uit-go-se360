@@ -53,10 +53,6 @@ flowchart TB
     Passenger -->|"POST /login"| US
     TS -->|"201 Trip Created<br/>(status: REQUESTED)"| Passenger
 
-    %% Passenger polls for status updates (every 5s)
-    Passenger -.->|"GET /trips/:id<br/>(Poll every 5s)"| TS
-    TS -.->|"Trip status<br/>(REQUESTED → DRIVER_ASSIGNED)"| Passenger
-
     %% TripService publishes TripRequested to SNS
     TS -->|"SNS Publish<br/>(TripRequested)"| SNS
 
@@ -83,6 +79,10 @@ flowchart TB
     %% TripService polls trip-update-queue
     Q2 -->|"Poll & Process"| TEC
     TEC -->|"Update Trip Status"| TS
+
+    %% Notify Passenger when driver accepts
+    TS -->|"Notify Passenger"| Push
+    Push -.->|"🔔 Driver Accepted!"| Passenger
 
     %% DLQ connections
     Q1 -.->|"maxReceiveCount: 3"| DLQ1
@@ -118,7 +118,7 @@ flowchart TB
 
 | Component | Port | Description |
 |-----------|------|-------------|
-| **Passenger App** | - | Mobile app for passengers to create trips and poll status |
+| **Passenger App** | - | Mobile app for passengers to create trips and receive notifications |
 | **Driver App** | - | Mobile app for drivers to receive trip notifications and accept |
 | **TripService** | 3002 | Handles trip creation, publishes TripRequested events |
 | **TripEventsConsumer** | - | Polls trip-update-queue, updates trip status in DB |
@@ -142,28 +142,22 @@ flowchart TB
 Passenger → POST /trips → TripService → Save to DB (REQUESTED) → Publish TripRequested to SNS → Return 201
 ```
 
-### 2️⃣ Passenger Polling (Every 5s)
-
-```
-Passenger → GET /trips/:id → TripService → Return current trip status (REQUESTED → DRIVER_ASSIGNED)
-```
-
-### 3️⃣ Driver Matching & Notification Flow (Async)
+### 2️⃣ Driver Matching & Notification Flow (Async)
 
 ```
 SNS (TripRequested) → driver-match-queue → TripMatchingConsumer → DriverService → GEORADIUS Redis → Push Notification to Drivers
 ```
 
-### 4️⃣ Driver Accept Flow
+### 3️⃣ Driver Accept Flow
 
 ```
 Driver receives push → Driver App → POST /trips/:id/accept → DriverService → Publish TripMatched to SNS
 ```
 
-### 5️⃣ Trip Status Update Flow (Async)
+### 4️⃣ Trip Status Update & Passenger Notification Flow (Async)
 
 ```
-SNS (TripMatched/NoDriversAvailable) → trip-update-queue → TripEventsConsumer → Update trip status in DB
+SNS (TripMatched/NoDriversAvailable) → trip-update-queue → TripEventsConsumer → Update trip status in DB → Push Notification to Passenger
 ```
 
 ---
@@ -200,17 +194,11 @@ sequenceDiagram
     SNS-->>-TS: Published ✓
     TS-->>-P: 201 Created {tripId, status: REQUESTED}
 
-    Note over P,DLQ2: PHASE 3: Passenger Polls for Status (every 5s)
-    loop Poll Every 5s
-        P->>+TS: GET /trips/:id
-        TS-->>-P: {status: REQUESTED}
-    end
-
-    Note over P,DLQ2: PHASE 4: SNS Fan-out to SQS Queues
+    Note over P,DLQ2: PHASE 3: SNS Fan-out to SQS Queues
     SNS->>Q1: Route to driver-match-queue<br/>(Filter: eventType = TripRequested)
     SNS->>Q2: Route to trip-update-queue<br/>(Filter: eventType = TripMatched | NoDriversAvailable)
 
-    Note over P,DLQ2: PHASE 5: Driver Matching & Notification (Async)
+    Note over P,DLQ2: PHASE 4: Driver Matching & Notification (Async)
     loop Poll Queue (Long Polling 5s)
         TMC->>+Q1: receiveMessages()
         Q1-->>-TMC: TripRequested message
@@ -239,7 +227,7 @@ sequenceDiagram
     
     DS-->>-TMC: Matching complete
 
-    Note over P,DLQ2: PHASE 6: Trip Status Update (Async)
+    Note over P,DLQ2: PHASE 5: Trip Status Update & Passenger Notification (Async)
     loop Poll Queue (Long Polling 5s)
         TEC->>+Q2: receiveMessages()
         Q2-->>-TEC: TripMatched/NoDriversAvailable message
@@ -248,14 +236,14 @@ sequenceDiagram
     alt TripMatched
         TEC->>TS: handleTripMatched(event)
         TS->>TS: Update trip: status=DRIVER_ASSIGNED, driverId
+        TS->>+Push: Send push to passenger
+        Push-->>-P: 🔔 "Driver accepted! On the way."
     else NoDriversAvailable
         TEC->>TS: handleNoDriversAvailable(event)
         TS->>TS: Update trip: status=NO_DRIVERS_AVAILABLE
+        TS->>+Push: Send push to passenger
+        Push-->>-P: 🔔 "No drivers available. Try again."
     end
-
-    Note over P,DLQ2: PHASE 7: Passenger Gets Updated Status (Polling)
-    P->>+TS: GET /trips/:id
-    TS-->>-P: 200 OK {tripId, status: DRIVER_ASSIGNED, driverId}
 
     Note over P,DLQ2: ERROR HANDLING: Dead Letter Queues
     Q1--xDLQ1: After 3 failed processing attempts
