@@ -5,23 +5,26 @@ version: '3.8'
 
 services:
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # LocalStack - AWS Service Emulation (FREE tier)
-  # Provides: SNS, SQS, API Gateway, CloudWatch
+  # LocalStack - AWS Service Emulation (Ultimate Trial)
+  # Provides: SNS, SQS, API Gateway, CloudWatch, ELBv2/ALB, ECS, ECR
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   localstack:
-    image: localstack/localstack:latest
+    image: localstack/localstack-pro:latest
     container_name: uitgo-localstack
     ports:
       - '4566:4566'            # LocalStack gateway (all AWS services)
       - '4510-4559:4510-4559'  # External service port range
     environment:
-      - SERVICES=sns,sqs,apigateway,cloudwatch,sts,iam
+      # Ultimate Trial: includes ELBv2/ALB, ECS, ECR, RDS, ElastiCache, Auto Scaling
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}
+      - SERVICES=sns,sqs,apigateway,cloudwatch,sts,iam,elbv2,ec2,ecs,ecr,autoscaling,application-autoscaling
       - DEBUG=1
       - DOCKER_HOST=unix:///var/run/docker.sock
       - DATA_DIR=/var/lib/localstack/data
     volumes:
       - './infrastructure/localstack:/etc/localstack/init/ready.d'  # Init scripts
       - 'localstack-data:/var/lib/localstack'
+      - '/var/run/docker.sock:/var/run/docker.sock'  # Required for EC2 Docker VM manager
     networks:
       - uitgo-network
     healthcheck:
