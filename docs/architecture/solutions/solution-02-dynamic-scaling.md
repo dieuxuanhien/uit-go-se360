@@ -4,7 +4,7 @@
 The root cause of the failure in *Critical Bottlenecks* is not "not enough servers," but "slow reaction speed."
 
 *   **The Physics:** Traffic spikes happen in **seconds** (e.g., rain starts). Humans react in **minutes** (alert -> login -> scale).
-*   **The Gap:** During those 10 minutes of human latency, the system is under-provisioned and crashes.
+*   **The Gap:** During human-and-change-pipeline latency (often minutes-scale), the system can be under-provisioned and fail.
 *   **The Failure Mode:** "Utilization Paradox." You either waste money (over-provisioning) or risk crashing (under-provisioning). You cannot win with static numbers.
 
 ## 2. The Architectural Solution: "Automated Elasticity"
@@ -18,9 +18,9 @@ We replace static configuration with a dynamic **Control Loop**. The infrastruct
 3.  **Act (The Hand):** Boot or Kill containers via the Orchestrator (Docker/K8s).
 
 ## 3. Why This Fixes the Crash
-*   **Speed:** The machine reacts in seconds, closing the "Reaction Time Gap."
-*   **Efficiency:** We run at optimal utilization (e.g., 50%) constantly, saving money during low traffic.
-*   **Survival:** The system can absorb a 10x spike by simply growing 10x larger, without human intervention.
+*   **Speed:** The machine can react faster than humans (seconds-to-minutes depending on container startup, health checks, and the control loop interval).
+*   **Efficiency:** The fleet can track load over time, reducing the need to permanently run at peak capacity.
+*   **Survival:** The system can absorb spikes by scaling out—within the limits of boot time, quotas, downstream capacity (DB), and load balancer propagation.
 
 ## 4. Technology Selection
 We need an Autoscaler.
@@ -84,15 +84,15 @@ upstream trip_backend {
 
 #### Key Features Implemented:
 *   **Least Connections:** Routes traffic to the least busy replica.
-*   **Keepalive Connections:** Reuses TCP connections (128 per upstream), reducing latency by ~5ms per request.
-*   **Health Checks:** `max_fails=3 fail_timeout=10s` - automatically removes unhealthy replicas.
-*   **2-Second DNS TTL:** Discovers new replicas within 2 seconds of boot.
+*   **Keepalive Connections:** Reuses upstream connections (example: 128), reducing connection setup overhead.
+*   **Passive Health Handling:** `max_fails` / `fail_timeout` provide passive failure detection (based on failed requests). Active health checks require Nginx Plus or an external health checker.
+*   **Fast DNS Re-resolution:** With `resolver ... valid=2s` and `resolve`, Nginx can re-resolve service names frequently to discover new replicas.
 
 ### B. The Control Loop (`scripts/auto-scaler.py`)
 Unlike simple CPU-based scalers, our implementation uses a **Weighted Score System** combining multiple signals. Critically, it **reads metrics from the Nginx load balancer** (not just Docker stats) to get accurate per-service RPS and latency.
 
 ```python
-# Simplified actual implementation
+# Pseudocode sketch (illustrative, not exact implementation)
 SCALING_WEIGHTS = {
     "cpu": 0.30,       # 30% - Lagging indicator (from Docker stats)
     "memory": 0.15,    # 15% - Lagging indicator (from Docker stats)
@@ -110,27 +110,27 @@ while True:
     for service in services:
         # 1. Measure (Multi-Signal)
         metrics = {
-            "cpu": get_avg_cpu(service),           # e.g., 65%
-            "memory": get_avg_memory(service),      # e.g., 70%
-            "rps_per_replica": get_rps(service),   # e.g., 120 RPS (from Nginx)
-            "latency_ms": get_p95_latency(service),# e.g., 450ms (from Nginx)
-            "queue_depth": get_sqs_depth(service)  # e.g., 80 msgs
+            "cpu": get_avg_cpu(service),
+            "memory": get_avg_memory(service),
+            "rps_per_replica": get_rps(service),
+            "latency_ms": get_p95_latency(service),
+            "queue_depth": get_queue_depth(service),
         }
         
         # 2. Calculate Weighted Score
         score = calculate_weighted_score(service, metrics)
         
         # 3. Decide with Burst Logic
-        if score > 1.0 or queue_depth > 50:  # Over target
+        if score > 1.0 or metrics["queue_depth"] > 50:  # Over target
             if not in_cooldown(service, "scale_out"):
                 replicas_to_add = get_burst_replicas(score, metrics)
                 scale_service(service, +replicas_to_add)
-                start_cooldown(service, scale_out=12s)
+                start_cooldown(service, scale_out_seconds=12)
         
         elif score < 0.5 and consecutive_low_count >= 3:  # Under target
             if not in_cooldown(service, "scale_in"):
                 scale_service(service, -1)
-                start_cooldown(service, scale_in=60s)
+                start_cooldown(service, scale_in_seconds=60)
                 
     sleep(3)  # Poll every 3 seconds
 ```
@@ -138,11 +138,11 @@ while True:
 ### B. Key Features Implemented
 
 #### 1. Multi-Signal Monitoring
-*   **CPU Utilization:** Target 45-55% (varies by service).
-*   **Memory Utilization:** Target 60-70%.
-*   **RPS per Replica:** Target 60-100 RPS (varies by service complexity).
-*   **P95 Latency:** Target 150-300ms (varies by service).
-*   **SQS Queue Depth:** Target < 50 messages (for async services).
+*   **CPU Utilization:** Example target band (varies by service).
+*   **Memory Utilization:** Example target band.
+*   **RPS per Replica:** Example target band (varies by endpoint mix and service complexity).
+*   **P95 Latency:** Example target band.
+*   **Queue Depth:** Example target band (for async flows).
 
 #### 2. Burst Scaling
 When the system detects critical pressure, it scales by **multiple replicas** at once:
@@ -182,7 +182,7 @@ Automated scaling introduces dynamic instability risks. Below is the status of e
     *   **Cooldown Periods:** Scale-out cooldown = 12s, Scale-in cooldown = 60-90s.
     *   **Consecutive Readings:** Require 3 consecutive low-usage readings before scaling down.
     *   **Startup Grace Period:** 60-second grace period where scale-in is disabled.
-    *   *Result:* Flapping is effectively eliminated in testing.
+    *   *Result:* Flapping is reduced in testing, but thresholds/cooldowns still need tuning as traffic patterns change.
 
 ### B. Trade-off: "Cold Start" Latency
 *   **The Cost:** When we decide to scale up, it takes 30-60 seconds for the new container to boot and pass health checks.
@@ -200,16 +200,16 @@ Automated scaling introduces dynamic instability risks. Below is the status of e
 *   **The Cost:** If we suddenly boot 5+ new containers, they all try to connect to Postgres simultaneously.
 *   **Risk:** The Database runs out of connections (`max_connections` limit) and crashes.
 *   **Status:** ⏳ **NOT YET IMPLEMENTED**
-    *   **Current Risk:** Moderate. Our burst scaling caps at +5 replicas, and we have 200 max connections per DB.
+    *   **Current Risk:** Moderate. Burst scaling can add multiple replicas at once, which can create a connection surge if every replica opens its own pools.
     *   **Planned Mitigation:** Implement **PgBouncer (Connection Pooling)**.
         *   The containers connect to the Proxy (PgBouncer), not the DB directly.
         *   The Proxy multiplexes thousands of app connections into ~100 DB connections.
-        *   *Trade-off of the Fix:* Adds latency (~1ms per query) and operational complexity.
+        *   *Trade-off of the Fix:* Adds some latency and operational complexity.
 
 ### D. Trade-off: Load Balancer Awareness Delay
-*   **The Cost:** When a new replica boots, there is a 2-5 second gap before it receives traffic.
-*   **Risk:** Capacity is technically increased but unused during this window.
+*   **The Cost:** When a new replica boots, there is a propagation gap before it receives traffic.
+*   **Risk:** Capacity is technically increased but temporarily unused during this window.
 *   **Status:** ✅ **MITIGATED (Implemented)**
-    *   **DNS TTL = 2s:** Docker DNS cache refreshes every 2 seconds.
-    *   **Nginx `least_conn`:** New replicas with 0 connections are prioritized immediately.
+    *   **Short DNS validity:** Nginx is configured to re-resolve frequently.
+    *   **Nginx `least_conn`:** New replicas with 0 connections tend to receive traffic quickly.
     *   **Health Checks:** Replicas only receive traffic after passing health check.

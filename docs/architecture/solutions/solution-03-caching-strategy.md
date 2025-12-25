@@ -3,9 +3,9 @@
 ## 1. The Essence of the Problem: "The Database Bottleneck"
 In the *Critical Bottlenecks* analysis, we identified that the database is the single point of failure.
 
-*   **The Physics:** A database query involves disk I/O, network round-trips, and complex B-Tree traversals. It takes **10-50ms**.
-*   **The Waste:** 80% of our queries are asking for the *exact same data* we just fetched 1 second ago (e.g., "Get Driver Profile", "Get Pricing Rules").
-*   **The Failure Mode:** "IOPS Saturation." The database CPU hits 100% just answering redundant questions, leaving no capacity for critical writes (like "Create Trip").
+*   **The Physics:** A database query involves network round-trips, parsing/planning, index/page reads, and lock/IO contention. Under load, tail latency and contention are often the real problem.
+*   **The Waste:** Many reads are repetitive (profiles/config/pricing rules), so repeatedly hitting the primary DB burns CPU/IOPS budget for low-value work.
+*   **The Failure Mode:** When read traffic exceeds sustainable capacity, queues form (connection pools, DB worker processes, storage). Latency rises non-linearly, and critical writes start timing out.
 
 ## 2. The Architectural Solution: "Memory-First Architecture"
 We introduce a **Caching Layer** (Short-Term Memory) in front of the Database (Long-Term Memory).
@@ -16,14 +16,14 @@ We do not treat the Cache as a magic box. The application explicitly manages it:
 1.  **Ask Cache:** "Do you have the Driver Profile for ID 123?"
 2.  **Hit (Fast):** "Yes, here it is." (Time: 1ms) -> **Return to User.**
 3.  **Miss (Slow):** "No."
-    *   Fetch from Database (Time: 20ms).
+  *   Fetch from Database (typically slower than cache, especially under load).
     *   **Write to Cache** with an expiration (TTL).
     *   Return to User.
 
 ## 3. Why This Fixes the Crash
-*   **Speed:** 1ms vs 20ms. We serve data 20x faster.
-*   **Protection:** We shield the database from 90% of read traffic. A 10x spike in user traffic only results in a 1x spike in database load.
-*   **Cost:** RAM is expensive, but cheaper than scaling a relational database to handle millions of IOPS.
+*   **Speed:** Cache hits are typically much faster and more stable than database reads under contention.
+*   **Protection:** High hit rates reduce load on the primary database, preserving capacity for critical writes.
+*   **Cost:** Shifting hot reads to Redis is often cheaper than scaling the primary database for peak read traffic.
 
 ## 4. Technology Selection
 We need a high-performance Key-Value store.
@@ -76,7 +76,7 @@ redis-node-1:
 ```typescript
 // RedisService - Cluster mode with read scaling
 this.client = new Cluster(nodes, {
-  scaleReads: 'slave',  // Read from replicas (2x read capacity)
+  scaleReads: 'slave',  // Optional: read from replicas (increases read capacity)
   maxRedirections: 16,  // Handle slot migrations gracefully
 });
 ```
@@ -146,7 +146,7 @@ const nearbyDrivers = await this.redisService.georadius(
 ```
 
 *   **Time Complexity:** O(log N + M) where M = results. This is **sub-millisecond** regardless of total drivers.
-*   **Result:** 500ms → 1ms. A **500x improvement**.
+*   **Reality in our codebase:** The geo query is usually fast, but total endpoint latency can include additional work (e.g., fetching status/location metadata via `MGET`, JSON parsing, filtering). We also log a warning if geospatial search exceeds a 500ms threshold.
 
 ### D. Usage in Repository Layer
 We apply caching to high-volume read operations, like fetching User Profiles.
@@ -201,7 +201,7 @@ Caching introduces the hardest problem in computer science: **Cache Invalidation
         *   *Idea:* If TTL < 5s, one random request re-fetches the data while others serve the "stale" data.
 
 ### C. Trade-off: Serialization Overhead
-*   **The Cost:** `JSON.stringify` and `JSON.parse` block the Node.js event loop.
+*   **The Cost:** `JSON.stringify` and `JSON.parse` are synchronous CPU work. For small objects this is usually fine, but large payloads can add event loop delay.
 *   **Risk:** High CPU usage on the Node.js server if we cache massive objects (e.g., 1MB lists).
 *   **Status:** ✅ **MITIGATED (Design)**
     *   **Rule:** We only cache small entities (Profiles, Configs).
@@ -227,10 +227,10 @@ Request Flow:
 │ Request │    │  Cache  │    │   DB    │    │   DB    │
 └─────────┘    └────┬────┘    └────┬────┘    └────┬────┘
                    │              │              │
-               90% Hit        8% Hit         2% Hit
-               (1ms)         (20ms)         (50ms)
+              Cache Hit       Replica Read    Primary Read
+            (fastest path)   (fallback path)  (slowest path)
 ```
 
-*   **Solution 3 (Cache):** Handles 90% of reads.
-*   **Solution 4 (Replicas):** Handles the remaining 10% without overloading the Primary.
+*   **Solution 3 (Cache):** Handles a large share of hot reads when hit rate is high.
+*   **Solution 4 (Replicas):** Handles additional read load without pushing everything onto the Primary.
 *   **Result:** Primary DB is protected for critical writes (Create Trip, Update Status).
