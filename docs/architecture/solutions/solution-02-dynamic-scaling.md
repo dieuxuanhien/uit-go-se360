@@ -1,5 +1,7 @@
 # Solution 2: Dynamic Infrastructure (The "Thermostat" for Capacity)
 
+> **References:** See [bottleneck-references.md](../bottleneck-references.md) for authoritative sources on distributed systems concepts.
+
 ## 1. The Essence of the Problem: "The Reaction Time Gap"
 The root cause of the failure in *Critical Bottlenecks* is not "not enough servers," but "slow reaction speed."
 
@@ -157,6 +159,9 @@ BURST_SCALING = {
 ```
 
 #### 3. Cooldown Periods (Anti-Flapping)
+
+> **Industry Pattern:** Cooldown periods prevent "flapping" (rapid scale up/down oscillations). This is a standard practice in AWS Auto Scaling and Kubernetes HPA.
+
 *   **Scale-Out Cooldown:** 12 seconds (Fast reaction).
 *   **Scale-In Cooldown:** 60-90 seconds (Slow contraction).
 *   **Philosophy:** "Scale up fast, scale down slow."

@@ -11,6 +11,9 @@ In the *Critical Bottlenecks* analysis, we identified that the database is the s
 We introduce a **Caching Layer** (Short-Term Memory) in front of the Database (Long-Term Memory).
 
 ### The Pattern: "Cache-Aside" (Lazy Loading)
+
+> **Reference:** Cache-Aside is one of the fundamental caching patterns described in Microsoft Azure Architecture docs and AWS ElastiCache best practices. Also known as "Lazy Loading."
+
 We do not treat the Cache as a magic box. The application explicitly manages it:
 
 1.  **Ask Cache:** "Do you have the Driver Profile for ID 123?"
@@ -121,7 +124,10 @@ Without Redis, we would need to:
 3. Sort by distance.
 *   **Time Complexity:** O(N) where N = total drivers. At 10,000 drivers, this takes **500ms+**.
 
-#### The Solution: Redis GEORADIUS
+#### The Solution: Redis GEOSEARCH (formerly GEORADIUS)
+
+> ⚠️ **Deprecation Notice:** As of Redis 6.2, `GEORADIUS` is deprecated. Use `GEOSEARCH` with `BYRADIUS` instead. Redis 7 includes 4x performance improvements for `GEOSEARCH`.
+
 Redis has built-in geospatial commands that use a **Sorted Set + Geohash** under the hood.
 
 ```typescript
@@ -135,17 +141,18 @@ await this.redisService.geoadd(
 );
 
 // 2. When user requests trip → Find drivers within 5km
-const nearbyDrivers = await this.redisService.georadius(
+// Note: Use GEOSEARCH for Redis 6.2+ (GEORADIUS is deprecated)
+const nearbyDrivers = await this.redisService.geosearch(
   'driver:geo',
-  pickupLongitude, pickupLatitude,
-  5, 'km',           // Radius
-  'WITHDIST', 'ASC', // Return distance, sorted closest first
-  'COUNT', '10'      // Limit to 10 drivers
+  'FROMMEMBER', pickupLocationKey,  // or FROMLONLAT lng lat
+  'BYRADIUS', 5, 'km',              // Search radius
+  'WITHDIST', 'ASC',                // Return distance, sorted closest first
+  'COUNT', '10'                      // Limit to 10 drivers
 );
 // Returns: [['driver-123', '1.2'], ['driver-456', '2.8'], ...]
 ```
 
-*   **Time Complexity:** O(log N + M) where M = results. This is **sub-millisecond** regardless of total drivers.
+*   **Time Complexity:** O(N + log(M)) where N = items in bounding box, M = total items. This is **sub-millisecond** for typical workloads.
 *   **Reality in our codebase:** The geo query is usually fast, but total endpoint latency can include additional work (e.g., fetching status/location metadata via `MGET`, JSON parsing, filtering). We also log a warning if geospatial search exceeds a 500ms threshold.
 
 ### D. Usage in Repository Layer
@@ -197,8 +204,19 @@ Caching introduces the hardest problem in computer science: **Cache Invalidation
 *   **Risk:** Instant database crash at the exact moment of expiration.
 *   **Status:** ⏳ **NOT YET IMPLEMENTED**
     *   **Current Risk:** Moderate.
-    *   **Planned Mitigation:** **Probabilistic Early Expiration** (X-Fetch) or **Locking**.
-        *   *Idea:* If TTL < 5s, one random request re-fetches the data while others serve the "stale" data.
+    *   **Planned Mitigation:** **Probabilistic Early Expiration (XFetch Algorithm)**.
+
+> **XFetch Algorithm** (Vattani et al., VLDB 2015):
+> 
+> Instead of waiting for exact TTL expiration, each request probabilistically recomputes the cache value *before* expiration. The probability increases as TTL approaches:
+> 
+> ```
+> shouldRecompute = (currentTime - fetchTime) >= TTL - (β × computeTime × log(random()))
+> ```
+> 
+> Where `β` (beta) is a tuning parameter (typically 1.0). This distributes recomputation load over time, preventing synchronized stampedes.
+> 
+> **Reference:** [Wikipedia: Cache Stampede - Probabilistic Early Expiration](https://en.wikipedia.org/wiki/Cache_stampede#Probabilistic_early_expiration)
 
 ### C. Trade-off: Serialization Overhead
 *   **The Cost:** `JSON.stringify` and `JSON.parse` are synchronous CPU work. For small objects this is usually fine, but large payloads can add event loop delay.

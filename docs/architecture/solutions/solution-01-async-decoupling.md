@@ -7,7 +7,10 @@ The root cause of the crash described in *Critical Bottlenecks* is not "slow cod
 *   **The Physics:** If Service B slows down by 1 second, Service A *must* hold its memory for 1 extra second.
 *   **The Failure Mode:** During a spike, Service B slows down. Service A holds thousands of connections. RAM fills up. Service A crashes.
 
-## 2. The Architectural Solution: "Fire-and-Forget"
+## 2. The Architectural Solution: "Fire-and-Forget" (with Eventual Processing)
+
+> **Clarification:** "Fire-and-Forget" means the *producer* forgets—not that the work is abandoned. The consumer still processes the message eventually. A more precise term is **"Asynchronous Handoff"** or **"Deferred Processing."**
+
 We must break the temporal link. Service A should hand off the work and *immediately* return an acknowledgement to the user.
 
 ### The Pattern: Event-Driven Handoff
@@ -54,6 +57,8 @@ We need a durable Event Bus. The choice is secondary to the pattern, but we sele
 ## 5. Implementation Strategy
 
 We implement the **Fan-Out Pattern** using SNS and SQS.
+
+> **Reference:** This pattern is documented in [AWS Architecture Blog: Fan-Out Serverless Architectures](https://aws.amazon.com/blogs/compute/building-scalable-serverless-applications-with-amazon-sns-and-amazon-sqs/) and is an industry-standard approach for event-driven microservices.
 
 ### A. Infrastructure Topology (`infrastructure/localstack/init-story-2.1-resources.sh`)
 1.  **SNS Topic (`trip-events`):** The "Megaphone". Trip Service shouts here.
@@ -223,6 +228,8 @@ Every architectural choice has a cost. By choosing **Event-Driven Architecture**
     *   *Logic:* The consumer maintains `processedMessageIds = new Set<string>()`. Before processing, it checks: `if (processedMessageIds.has(messageId)) return`.
     *   *Limitations:* This only works within a single container instance; restarts clear the set; and it can grow without bounds unless capped/expired.
     *   **Recommended Hardening:** Move idempotency tracking to a shared store (e.g., Redis with TTL) and/or enforce idempotency at the database level (unique constraints per `tripId` state transition) so duplicate deliveries are safe across replicas and restarts.
+
+> **Best Practice:** AWS recommends designing idempotent consumers for all SQS-based architectures. See [AWS SQS Developer Guide: Designing for Idempotence](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/using-messagededuplicationid-property.html).
 
 ### C. Trade-off: Loss of Strict Ordering
 *   **The Cost:** Standard SQS does not guarantee FIFO (First-In-First-Out). A trip requested at 10:00:01 might be processed *after* a trip requested at 10:00:02.

@@ -12,8 +12,11 @@ We split the workload based on the nature of the operation:
 *   **Writes:** "Create Trip", "Update Location". These MUST go to the Primary DB to ensure correctness.
 *   **Reads:** "Get Profile", "List History". These can go to **Read Replicas** (copies) when the endpoint can tolerate slightly stale data.
 
-### The Pattern: Command Query Responsibility Segregation (CQRS - Lite)
-We don't need full CQRS. We just need to route queries:
+### The Pattern: Query Routing (Often Misnamed "CQRS-Lite")
+
+> **Clarification:** This is **NOT** Command Query Responsibility Segregation (CQRS). True CQRS involves separate read and write *models* (different schemas/databases optimized for each). What we implement is simpler: **Query Routing**—directing read queries to replicas while keeping writes on the primary. The data model is identical.
+
+We just need to route queries:
 *   `INSERT/UPDATE/DELETE` -> **Primary**
 *   Read-only queries -> **Replica 1, Replica 2, ...** (chosen explicitly in repository code)
 
@@ -99,6 +102,9 @@ Replication introduces the "Read-Your-Writes" consistency problem.
 ### A. Trade-off: "Replication Lag"
 *   **The Cost:** A user writes on Primary, then immediately reads from a Replica; the Replica may not have applied that write yet. The user can see stale data.
 *   **Risk:** User confusion ("Did my update fail?").
+
+> **Reference:** This is the "read-your-writes" consistency problem described in Kleppmann's *Designing Data-Intensive Applications* (Chapter 5). PostgreSQL can guarantee read-your-writes using `synchronous_commit = remote_apply`, but this adds latency.
+
 *   **Status:** ⚙️ **PARTIALLY MITIGATED**
     *   **Implemented:** Some endpoints explicitly read from Primary for freshness (e.g., `trip-service` single-trip lookup defaults to Primary).
     *   **Remaining risk:** Some reads in `user-service` go to replicas after cache miss; after a recent write, that can still observe staleness unless we deliberately pin those reads to Primary for a short window.

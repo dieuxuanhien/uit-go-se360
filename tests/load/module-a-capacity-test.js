@@ -85,7 +85,7 @@ const DRIVER_START_INDEX = parseInt(__ENV.DRIVER_START_INDEX || '5001'); // Firs
 
 // Workload distribution (configurable)
 const PASSENGER_RATIO = parseFloat(__ENV.PASSENGER_RATIO || '0.7'); // 70% passengers
-const DRIVER_RATIO = 1 - PASSENGER_RATIO; // 30% drivers
+const DRIVER_RATIO = 1 - PASSENGER_RATIO; // 30% drivers  
 
 // HCMC coordinates for realistic location simulation
 const HCMC_CENTER = { lat: 10.762622, lng: 106.660172 };

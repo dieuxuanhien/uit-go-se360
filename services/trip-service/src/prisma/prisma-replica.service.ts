@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 
 /**
  * Prisma Read Replica Service for read-heavy queries
- * Routes SELECT queries to read replicas for 10x capacity improvement
+ * Routes read-only queries to configured replicas to reduce load on the primary.
  * 
  * Story 2.2: Database Read Scaling
  */

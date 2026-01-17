@@ -21,6 +21,18 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 cd "$(dirname "$0")/.."
 
+# Load LocalStack auth token if available (for Ultimate features)
+if [ -f .env.localstack ]; then
+  echo "📋 Loading LocalStack auth token..."
+  export $(grep -v '^#' .env.localstack | xargs)
+  if [ "$LOCALSTACK_AUTH_TOKEN" != "YOUR_AUTH_TOKEN_HERE" ] && [ -n "$LOCALSTACK_AUTH_TOKEN" ]; then
+    echo "   ✅ LocalStack Ultimate license token loaded"
+  else
+    echo "   ⚠️  No valid auth token found - using Community Edition"
+    echo "   💡 Get your free trial token at: https://app.localstack.cloud/workspace/auth-token"
+  fi
+fi
+
 # Define compose files for reuse
 COMPOSE_FILES="-f docker-compose.yml -f docker-compose.localstack.yml -f docker-compose.replicas.yml -f docker-compose.redis-cluster.yml -f docker-compose.loadbalancer.yml"
 
