@@ -27,7 +27,7 @@ Backpressure signals exist on a **spectrum from passive to active enforcement**:
 | **Passive (HTTP Status)** | Return `503`/`429` error code | Client *should* back off but can ignore | ❌ Not enforced; badly designed clients cause retry storms |
 | **Bounded Concurrency** | Limit in-flight requests (e.g., 100 max) | New requests wait/queue until slot frees | ✅ Enforced; 101st request physically cannot proceed |
 | **Circuit Breaker** | Detect failure rate → open circuit | Fail-fast without calling downstream | ✅ Enforced; downstream protected from additional load |
-| **TCP Flow Control** | Receiver sends window size = 0 | Sender **must stop** sending (OS-level) | ✅✅ Kernel-enforced; no application choice |
+| **TCP Flow Control** | Receiver sends window size = 0 | Sender **must stop** sending (OS-level) | Kernel-enforced; no application choice |
 | **Queue Rejection** | Bounded queue full → reject enqueue | Producer gets immediate error | ✅ Enforced; producer must handle rejection |
 
 **Key Insight:** The "signal" means **the producer is given immediate feedback** about overload. Compare:
